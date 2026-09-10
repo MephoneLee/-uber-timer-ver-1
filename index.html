@@ -20,6 +20,18 @@
     --stop-dim:#9C7A2A;
     --danger:#C9604F;
   }
+  html[data-theme="light"]{
+    --bg:#F3F0E9;
+    --panel:#FFFFFF;
+    --line:#E2DDD1;
+    --text:#20242A;
+    --muted:#6B7178;
+    --go:#1E9A5C;
+    --go-dim:#17784A;
+    --stop:#B4780F;
+    --stop-dim:#8F6110;
+    --danger:#B5453A;
+  }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -31,6 +43,7 @@
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     display:flex;
     justify-content:center;
+    transition:background-color .25s ease, color .25s ease;
   }
   .num{font-family:'Space Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums;}
 
@@ -40,13 +53,39 @@
     padding:28px 20px 40px;
   }
 
-  header{ margin-bottom:22px; }
+  header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+    margin-bottom:22px;
+  }
   header h1{
     font-family:'Space Grotesk', system-ui, sans-serif;
     font-size:22px; font-weight:600; letter-spacing:0.2px;
     margin:0 0 4px;
   }
   header p{ margin:0; color:var(--muted); font-size:13.5px; line-height:1.5; }
+
+  .theme-toggle{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:6px 12px;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+    cursor:pointer;
+    margin-top:2px;
+    transition:background-color .25s ease, border-color .25s ease, color .25s ease;
+  }
+  .theme-toggle:active{ transform:translateY(1px); }
+  .theme-toggle .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--text);
+  }
 
   /* idle CTA panel */
   .idle-panel{
@@ -215,8 +254,14 @@
 <div class="app">
 
   <header>
-    <h1>外送計時本</h1>
-    <p>可同時接好幾張單，各自獨立計時，完成順序不拘。</p>
+    <div>
+      <h1>外送計時本</h1>
+      <p>可同時接好幾張單，各自獨立計時，完成順序不拘。</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button">
+      <span class="dot" id="themeDot"></span>
+      <span id="themeLabel">深色</span>
+    </button>
   </header>
 
   <div class="idle-panel" id="idlePanel">
@@ -285,6 +330,8 @@
     logList: document.getElementById('logList'),
     clearAll: document.getElementById('clearAll'),
     saveWarn: document.getElementById('saveWarn'),
+    themeToggle: document.getElementById('themeToggle'),
+    themeLabel: document.getElementById('themeLabel'),
   };
 
   function pad(n){ return String(n).padStart(2,'0'); }
@@ -391,6 +438,32 @@
   function setSaveWarn(bad){
     el.saveWarn.style.display = bad ? 'block' : 'none';
   }
+
+  // ---- theme (light / dark) ----
+  const THEME_KEY = 'theme';
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+    el.themeLabel.textContent = theme === 'light' ? '淺色' : '深色';
+  }
+
+  async function loadTheme(){
+    let theme = 'dark';
+    try{
+      const t = await storageGet(THEME_KEY);
+      if(t && (t.value === 'light' || t.value === 'dark')) theme = t.value;
+    }catch(e){ /* default to dark */ }
+    applyTheme(theme);
+  }
+
+  async function toggleTheme(){
+    const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const next = current === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    await storageSet(THEME_KEY, next);
+  }
+
+  el.themeToggle.addEventListener('click', toggleTheme);
 
   // ---- rendering ----
 
@@ -545,9 +618,22 @@
   });
 
   (async function init(){
+    await loadTheme();
     await loadAll();
     renderAll();
     tickHandle = setInterval(tick, 500);
+
+    // URL-triggered actions, for iOS Shortcuts / Back Tap automation.
+    // Opening ...?start=1 immediately starts a new timed order, no tap needed.
+    const params = new URLSearchParams(window.location.search);
+    if(params.get('start') === '1'){
+      await addOrder();
+    }
+    if(params.has('start')){
+      // clean the URL so a manual refresh later doesn't add another order
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
   })();
 })();
 </script>
