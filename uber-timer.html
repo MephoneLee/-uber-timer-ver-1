@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>外送計時本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14171A;
+    --panel:#1B1F23;
+    --line:#2A2F34;
+    --text:#EDEFF1;
+    --muted:#8B93A0;
+    --go:#33C17A;
+    --go-dim:#1F7A4C;
+    --stop:#E8B23D;
+    --stop-dim:#9C7A2A;
+    --danger:#C9604F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    display:flex;
+    justify-content:center;
+  }
+  .num{font-family:'Space Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums;}
+
+  .app{
+    width:100%;
+    max-width:460px;
+    padding:28px 20px 40px;
+  }
+
+  header{ margin-bottom:22px; }
+  header h1{
+    font-family:'Space Grotesk', system-ui, sans-serif;
+    font-size:22px; font-weight:600; letter-spacing:0.2px;
+    margin:0 0 4px;
+  }
+  header p{ margin:0; color:var(--muted); font-size:13.5px; line-height:1.5; }
+
+  /* idle CTA panel */
+  .idle-panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px 20px;
+    text-align:center;
+  }
+  .idle-panel .status{ font-size:13px; color:var(--muted); margin-bottom:14px; }
+  .cta-btn{
+    width:100%;
+    border:none;
+    border-radius:10px;
+    padding:16px 18px;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    background:var(--go);
+    color:#0B1310;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.18), 0 10px 24px -12px rgba(51,193,122,0.55);
+    transition:transform .08s ease;
+  }
+  .cta-btn:active{ transform:translateY(1px); box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18); }
+
+  /* active orders */
+  .active-section{ display:none; }
+  .active-section.show{ display:block; }
+
+  .active-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .active-head h2{
+    font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:600; margin:0;
+  }
+  .active-head .count{ font-size:12.5px; color:var(--muted); }
+
+  .card{
+    background:var(--panel);
+    border:1px solid rgba(232,178,61,0.4);
+    box-shadow:0 0 0 1px rgba(232,178,61,0.10), 0 14px 32px -20px rgba(232,178,61,0.35);
+    border-radius:14px;
+    padding:16px 18px 18px;
+    margin-bottom:12px;
+  }
+  .card-top{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .card-badges{ display:flex; align-items:center; gap:8px; }
+  .seq{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:12px; font-weight:600;
+    background:var(--line);
+    color:var(--text);
+    padding:3px 8px;
+    border-radius:20px;
+  }
+  .started-at{ font-size:12px; color:var(--muted); }
+  .cancel-btn{
+    background:none; border:none; color:#5C636B;
+    font-size:12px; cursor:pointer; padding:2px 0;
+  }
+  .cancel-btn:hover{ color:var(--danger); }
+
+  .card-timer{
+    font-size:38px; font-weight:600; color:var(--stop);
+    letter-spacing:0.5px; line-height:1; text-align:center; margin:6px 0 14px;
+  }
+
+  .note-row{ margin-bottom:12px; }
+  .note-row input{
+    width:100%;
+    background:transparent;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 12px;
+    font-size:14px;
+    color:var(--text);
+    font-family:inherit;
+  }
+  .note-row input::placeholder{ color:#5C636B; }
+  .note-row input:focus{ outline:none; border-color:#454C53; }
+
+  .complete-btn{
+    width:100%;
+    border:none;
+    border-radius:10px;
+    padding:13px 16px;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:15px; font-weight:700;
+    cursor:pointer;
+    background:var(--stop);
+    color:#241B06;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,0.18);
+  }
+  .complete-btn:active{ transform:translateY(1px); }
+
+  .add-more-btn{
+    width:100%;
+    border:1px dashed var(--line);
+    border-radius:10px;
+    padding:12px 16px;
+    background:none;
+    color:var(--muted);
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:14px; font-weight:600;
+    cursor:pointer;
+    margin-bottom:22px;
+  }
+  .add-more-btn:hover{ color:var(--text); border-color:#454C53; }
+
+  .stats{
+    margin-top:4px; margin-bottom:22px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .stat{ text-align:center; padding:16px 8px; position:relative; }
+  .stat:nth-child(1),.stat:nth-child(2){ border-bottom:1px solid var(--line); }
+  .stat:nth-child(odd)::after{
+    content:""; position:absolute; right:0; top:14px; bottom:14px; width:1px; background:var(--line);
+  }
+  .stat .val{ font-size:20px; font-weight:600; }
+  .stat .val.fee{ color:var(--stop); }
+  .stat .lbl{ margin-top:4px; font-size:12px; color:var(--muted); }
+
+  .log-section{ margin-top:0; }
+  .log-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
+  .log-head h2{ font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:600; margin:0; }
+  .clear-all{ background:none; border:none; color:var(--muted); font-size:12.5px; cursor:pointer; padding:2px; }
+  .clear-all:hover{ color:var(--danger); }
+
+  .log-list{ background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .log-row{ display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line); }
+  .log-row:last-child{ border-bottom:none; }
+  .log-row .seq-tag{
+    font-family:'Space Grotesk', sans-serif; font-size:12px; color:var(--muted);
+    width:26px; flex-shrink:0;
+  }
+  .log-row .times{ flex:1; min-width:0; }
+  .log-row .times .range{ font-size:14px; }
+  .log-row .times .note{
+    font-size:12px; color:var(--muted); margin-top:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .log-row .dur-wrap{ text-align:right; flex-shrink:0; }
+  .log-row .dur{ font-size:15px; font-weight:600; color:var(--go); }
+  .log-row .fee{ font-size:12px; color:var(--stop); margin-top:2px; }
+  .log-row .del{ background:none; border:none; color:#5C636B; font-size:12px; cursor:pointer; padding:4px 0 4px 8px; flex-shrink:0; }
+  .log-row .del:hover{ color:var(--danger); }
+
+  .empty{ padding:28px 16px; text-align:center; color:var(--muted); font-size:13.5px; line-height:1.6; }
+
+  .tip{ margin-top:22px; font-size:12px; color:#5C636B; line-height:1.6; text-align:center; }
+  .tip b{ color:var(--muted); font-weight:600; }
+
+  .save-warn{ margin-top:10px; font-size:12px; color:var(--danger); text-align:center; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>外送計時本</h1>
+    <p>可同時接好幾張單，各自獨立計時，完成順序不拘。</p>
+  </header>
+
+  <div class="idle-panel" id="idlePanel">
+    <div class="status">待命中，目前沒有進行中的訂單</div>
+    <button class="cta-btn" id="idleStartBtn">接單，開始計時</button>
+  </div>
+
+  <div class="active-section" id="activeSection">
+    <div class="active-head">
+      <h2>進行中</h2>
+      <span class="count" id="activeCount">0 張訂單計時中</span>
+    </div>
+    <div id="activeList"></div>
+    <button class="add-more-btn" id="addMoreBtn">＋ 再接一單，同時計時</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="val num" id="statCount">0</div><div class="lbl">今日趟數</div></div>
+    <div class="stat"><div class="val num" id="statTotal">0:00</div><div class="lbl">今日總時長</div></div>
+    <div class="stat"><div class="val num" id="statAvg">0:00</div><div class="lbl">平均每趟</div></div>
+    <div class="stat"><div class="val num fee" id="statFee">NT$0</div><div class="lbl">今日保障費用</div></div>
+  </div>
+
+  <div class="log-section">
+    <div class="log-head">
+      <h2>紀錄</h2>
+      <button class="clear-all" id="clearAll">清空所有紀錄</button>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="empty">尚未有紀錄，接下第一單後開始計時。</div>
+    </div>
+  </div>
+
+  <div class="save-warn" id="saveWarn" style="display:none;">
+    目前無法儲存紀錄，僅保留在這次瀏覽中，關閉頁面後會消失。
+  </div>
+
+  <div class="tip">
+    想在 iOS 上像 App 一樣使用：用 Safari 開啟這個頁面，點下方<b>分享</b>按鈕，選擇<b>「加入主畫面」</b>即可。
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const ORDERS_KEY = 'orders';
+  const ACTIVE_KEY = 'active_orders';
+  const OLD_ACTIVE_KEY = 'active_start'; // migration from single-order version
+
+  let orders = [];   // completed: {id, seq, start, end, duration, note}
+  let active = [];   // in-progress: {id, seq, start, note}
+  let tickHandle = null;
+  let noteSaveTimer = null;
+
+  const el = {
+    idlePanel: document.getElementById('idlePanel'),
+    idleStartBtn: document.getElementById('idleStartBtn'),
+    activeSection: document.getElementById('activeSection'),
+    activeList: document.getElementById('activeList'),
+    activeCount: document.getElementById('activeCount'),
+    addMoreBtn: document.getElementById('addMoreBtn'),
+    statCount: document.getElementById('statCount'),
+    statTotal: document.getElementById('statTotal'),
+    statAvg: document.getElementById('statAvg'),
+    statFee: document.getElementById('statFee'),
+    logList: document.getElementById('logList'),
+    clearAll: document.getElementById('clearAll'),
+    saveWarn: document.getElementById('saveWarn'),
+  };
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function fmtHMS(ms){
+    const s = Math.max(0, Math.floor(ms/1000));
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    return pad(h)+':'+pad(m)+':'+pad(sec);
+  }
+  function fmtMinShort(ms){
+    const totalMin = ms/60000;
+    const h = Math.floor(totalMin/60), m = Math.round(totalMin%60);
+    if(h>0) return h+':'+pad(m);
+    return '0:'+pad(Math.round(totalMin));
+  }
+  // 專法保障費用：花費時間(分) x 245 / 60
+  function calcFee(ms){
+    const minutes = ms/60000;
+    return Math.round(minutes * 245 / 60);
+  }
+  function fmtMoney(n){
+    return 'NT$'+Math.round(n).toLocaleString('zh-Hant');
+  }
+  function fmtClock(ts){
+    const d = new Date(ts);
+    return pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+  function isToday(ts){
+    const d = new Date(ts), n = new Date();
+    return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate();
+  }
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function nextSeq(){
+    let max = 0;
+    orders.forEach(o=>{ if(o.seq && o.seq>max) max=o.seq; });
+    active.forEach(o=>{ if(o.seq && o.seq>max) max=o.seq; });
+    return max+1;
+  }
+  function uid(){ return Date.now()+'-'+Math.random().toString(36).slice(2,8); }
+
+  // ---- storage adapter ----
+  // Inside Claude's artifact preview, window.storage exists and syncs to the cloud.
+  // Opened standalone in Safari (downloaded file / added to Home Screen), it doesn't —
+  // so fall back to the browser's own localStorage, keyed per this page.
+  const LS_PREFIX = 'uber_timer_';
+  const hasCloudStorage = (typeof window.storage === 'object' && window.storage !== null
+    && typeof window.storage.get === 'function' && typeof window.storage.set === 'function');
+
+  async function storageGet(key){
+    if(hasCloudStorage){
+      try{ return await window.storage.get(key, false); }
+      catch(e){ return null; }
+    }
+    try{
+      const v = localStorage.getItem(LS_PREFIX+key);
+      return v===null ? null : { value: v };
+    }catch(e){ return null; }
+  }
+
+  async function storageSet(key, value){
+    if(hasCloudStorage){
+      try{ return await window.storage.set(key, value, false); }
+      catch(e){ return null; }
+    }
+    try{ localStorage.setItem(LS_PREFIX+key, value); return { value }; }
+    catch(e){ return null; }
+  }
+
+  async function loadAll(){
+    try{
+      const o = await storageGet(ORDERS_KEY);
+      orders = o ? JSON.parse(o.value) : [];
+    }catch(e){ orders = []; }
+
+    try{
+      const a = await storageGet(ACTIVE_KEY);
+      active = a ? JSON.parse(a.value) : [];
+    }catch(e){
+      active = [];
+      // try migrating from old single-active format
+      try{
+        const old = await storageGet(OLD_ACTIVE_KEY);
+        if(old){
+          const parsed = JSON.parse(old.value);
+          if(parsed && parsed.start){
+            active = [{ id: uid(), seq: nextSeq(), start: parsed.start, note: '' }];
+            await saveActive();
+          }
+        }
+      }catch(e2){ /* no old data, fine */ }
+    }
+  }
+
+  async function saveOrders(){
+    const r = await storageSet(ORDERS_KEY, JSON.stringify(orders));
+    setSaveWarn(!r);
+  }
+  async function saveActive(){
+    const r = await storageSet(ACTIVE_KEY, JSON.stringify(active));
+    setSaveWarn(!r);
+  }
+  function setSaveWarn(bad){
+    el.saveWarn.style.display = bad ? 'block' : 'none';
+  }
+
+  // ---- rendering ----
+
+  function renderShell(){
+    const hasActive = active.length > 0;
+    el.idlePanel.style.display = hasActive ? 'none' : 'block';
+    el.activeSection.classList.toggle('show', hasActive);
+    el.activeCount.textContent = active.length + ' 張訂單計時中';
+  }
+
+  function renderActiveCards(){
+    if(active.length === 0){
+      el.activeList.innerHTML = '';
+      return;
+    }
+    const sorted = [...active].sort((a,b)=>a.start-b.start);
+    el.activeList.innerHTML = sorted.map(o => {
+      return '<div class="card" data-id="'+o.id+'">'
+        + '<div class="card-top">'
+        +   '<div class="card-badges"><span class="seq">#'+o.seq+'</span><span class="started-at">接單 '+fmtClock(o.start)+'</span></div>'
+        +   '<button class="cancel-btn" data-cancel="'+o.id+'">取消</button>'
+        + '</div>'
+        + '<div class="card-timer num" data-start="'+o.start+'">'+fmtHMS(Date.now()-o.start)+'</div>'
+        + '<div class="note-row"><input type="text" data-note="'+o.id+'" placeholder="備註（選填，店名或地址）" maxlength="60" value="'+escapeHtml(o.note||'')+'"></div>'
+        + '<button class="complete-btn" data-complete="'+o.id+'">完成這一單</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  function renderStats(){
+    const todays = orders.filter(o => isToday(o.end));
+    const count = todays.length;
+    const total = todays.reduce((a,o)=>a+o.duration,0);
+    const avg = count ? total/count : 0;
+    const feeTotal = todays.reduce((a,o)=>a+(o.fee||0),0);
+    el.statCount.textContent = count;
+    el.statTotal.textContent = fmtMinShort(total);
+    el.statAvg.textContent = fmtMinShort(avg);
+    el.statFee.textContent = fmtMoney(feeTotal);
+  }
+
+  function renderLog(){
+    if(orders.length === 0){
+      el.logList.innerHTML = '<div class="empty">尚未有紀錄，接下第一單後開始計時。</div>';
+      return;
+    }
+    const sorted = [...orders].sort((a,b)=>b.end-a.end);
+    el.logList.innerHTML = sorted.map((o)=>{
+      const noteHtml = o.note ? '<div class="note">'+escapeHtml(o.note)+'</div>' : '';
+      return '<div class="log-row" data-id="'+o.id+'">'
+        + '<div class="seq-tag num">#'+(o.seq||'-')+'</div>'
+        + '<div class="times"><div class="range num">'+fmtClock(o.start)+' → '+fmtClock(o.end)+'</div>'+noteHtml+'</div>'
+        + '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(o.fee||0)+'</div></div>'
+        + '<button class="del" data-id="'+o.id+'">刪除</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  function renderAll(){
+    renderShell();
+    renderActiveCards();
+    renderStats();
+    renderLog();
+  }
+
+  function tick(){
+    const timers = el.activeList.querySelectorAll('.card-timer');
+    timers.forEach(t=>{
+      const start = Number(t.getAttribute('data-start'));
+      t.textContent = fmtHMS(Date.now() - start);
+    });
+  }
+
+  // ---- actions ----
+
+  async function addOrder(){
+    active.push({ id: uid(), seq: nextSeq(), start: Date.now(), note: '' });
+    await saveActive();
+    renderShell();
+    renderActiveCards();
+  }
+
+  async function completeOrder(id){
+    const idx = active.findIndex(o=>o.id===id);
+    if(idx === -1) return;
+    const card = el.activeList.querySelector('.card[data-id="'+id+'"]');
+    const noteInput = card ? card.querySelector('[data-note]') : null;
+    const note = noteInput ? noteInput.value.trim() : (active[idx].note||'');
+    const o = active[idx];
+    const end = Date.now();
+    const duration = end - o.start;
+    orders.push({
+      id: uid(), seq: o.seq, start: o.start, end,
+      duration, fee: calcFee(duration), note
+    });
+    active.splice(idx,1);
+    await saveActive();
+    await saveOrders();
+    renderAll();
+  }
+
+  async function cancelOrder(id){
+    if(!confirm('取消這張進行中的訂單？不會留下紀錄。')) return;
+    active = active.filter(o=>o.id!==id);
+    await saveActive();
+    renderShell();
+    renderActiveCards();
+  }
+
+  function scheduleNoteSave(id, value){
+    const o = active.find(o=>o.id===id);
+    if(o) o.note = value;
+    clearTimeout(noteSaveTimer);
+    noteSaveTimer = setTimeout(saveActive, 700);
+  }
+
+  // ---- events ----
+
+  el.idleStartBtn.addEventListener('click', addOrder);
+  el.addMoreBtn.addEventListener('click', addOrder);
+
+  el.activeList.addEventListener('click', (e)=>{
+    const compBtn = e.target.closest('[data-complete]');
+    if(compBtn){ completeOrder(compBtn.getAttribute('data-complete')); return; }
+    const cancelBtn = e.target.closest('[data-cancel]');
+    if(cancelBtn){ cancelOrder(cancelBtn.getAttribute('data-cancel')); return; }
+  });
+
+  el.activeList.addEventListener('input', (e)=>{
+    const input = e.target.closest('[data-note]');
+    if(input){ scheduleNoteSave(input.getAttribute('data-note'), input.value); }
+  });
+
+  el.logList.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.del');
+    if(!btn) return;
+    const id = btn.getAttribute('data-id');
+    if(!confirm('刪除這筆紀錄？')) return;
+    orders = orders.filter(o => o.id !== id);
+    await saveOrders();
+    renderStats();
+    renderLog();
+  });
+
+  el.clearAll.addEventListener('click', async ()=>{
+    if(orders.length === 0) return;
+    if(!confirm('清空所有紀錄？此動作無法復原。')) return;
+    orders = [];
+    await saveOrders();
+    renderStats();
+    renderLog();
+  });
+
+  (async function init(){
+    await loadAll();
+    renderAll();
+    tickHandle = setInterval(tick, 500);
+  })();
+})();
+</script>
+</body>
+</html>
