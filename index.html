@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>外送計時紀錄本</title>
+<title>外送計時本</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -46,7 +46,7 @@
     justify-content:center;
     transition:background-color .25s ease, color .25s ease;
   }
-  .num{font-family:'Space Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums;}
+  .num{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums;}
 
   .app{
     width:100%;
@@ -59,8 +59,8 @@
     margin-bottom:22px;
   }
   header h1{
-    font-family:'Space Grotesk', system-ui, sans-serif;
-    font-size:22px; font-weight:600; letter-spacing:0.2px;
+    font-family:'Noto Serif TC', serif;
+    font-size:22px; font-weight:700; letter-spacing:0.2px;
     margin:0 0 4px;
   }
   header p{ margin:0; color:var(--muted); font-size:13.5px; line-height:1.5; }
@@ -69,23 +69,24 @@
     flex-shrink:0;
     display:flex;
     align-items:center;
-    gap:6px;
+    gap:9px;
     background:var(--panel);
     border:1px solid var(--line);
-    border-radius:20px;
-    padding:6px 12px;
+    border-radius:24px;
+    padding:11px 18px;
     font-family:'Noto Sans TC', sans-serif;
-    font-size:12.5px;
-    font-weight:600;
-    color:var(--muted);
+    font-size:14.5px;
+    font-weight:700;
+    color:var(--text);
     cursor:pointer;
     margin-top:2px;
     transition:background-color .25s ease, border-color .25s ease, color .25s ease;
   }
   .theme-toggle:active{ transform:translateY(1px); }
   .theme-toggle .dot{
-    width:8px; height:8px; border-radius:50%;
+    width:11px; height:11px; border-radius:50%;
     background:var(--text);
+    flex-shrink:0;
   }
 
   /* idle CTA panel */
@@ -122,7 +123,7 @@
     margin-bottom:10px;
   }
   .active-head h2{
-    font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:600; margin:0;
+    font-family:'Noto Serif TC', serif; font-size:15px; font-weight:700; margin:0;
   }
   .active-head .count{ font-size:12.5px; color:var(--muted); }
 
@@ -140,7 +141,7 @@
   }
   .card-badges{ display:flex; align-items:center; gap:8px; }
   .seq{
-    font-family:'Space Grotesk', sans-serif;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
     font-size:12px; font-weight:600;
     background:var(--line);
     color:var(--text);
@@ -239,7 +240,7 @@
 
   .log-section{ margin-top:0; }
   .log-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
-  .log-head h2{ font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:600; margin:0; }
+  .log-head h2{ font-family:'Noto Serif TC', serif; font-size:15px; font-weight:700; margin:0; }
   .clear-all{ background:none; border:none; color:var(--muted); font-size:12.5px; cursor:pointer; padding:2px; }
   .clear-all:hover{ color:var(--danger); }
 
@@ -247,7 +248,7 @@
   .log-row{ display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line); }
   .log-row:last-child{ border-bottom:none; }
   .log-row .seq-tag{
-    font-family:'Space Grotesk', sans-serif; font-size:12px; color:var(--muted);
+    font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:12px; color:var(--muted);
     width:26px; flex-shrink:0;
   }
   .log-row .times{ flex:1; min-width:0; }
@@ -371,8 +372,17 @@
     return '0:'+pad(Math.round(totalMin));
   }
   // 專法保障費用：花費時間(分) x 245 / 60，四捨五入到小數點後一位，未滿 45 元則以 45 元計
+  // 保障費用：先把耗時換算成「進位後的分鐘數」——
+  // X分Y秒，Y秒 >= 30 時 X 進位 +1 分；Y秒 < 30 時取 X 分不進位。
+  // 再用這個分鐘數套公式：分鐘數 x 245 / 60，四捨五入到小數點後一位，未滿 45 元以 45 元計。
+  function roundedMinutes(ms){
+    const totalSeconds = Math.floor(ms/1000);
+    const x = Math.floor(totalSeconds/60);
+    const y = totalSeconds % 60;
+    return y >= 30 ? x+1 : x;
+  }
   function calcFee(ms){
-    const minutes = ms/60000;
+    const minutes = roundedMinutes(ms);
     let fee = Math.round(minutes * 245 / 60 * 10) / 10;
     if(fee < 45) fee = 45;
     return fee;
@@ -523,7 +533,7 @@
     const count = todays.length;
     const total = todays.reduce((a,o)=>a+o.duration,0);
     const avg = count ? total/count : 0;
-    const feeTotal = todays.reduce((a,o)=>a+(o.fee||0),0);
+    const feeTotal = todays.reduce((a,o)=>a+calcFee(o.duration),0);
     el.statCount.textContent = count;
     el.statTotal.textContent = fmtMinShort(total);
     el.statAvg.textContent = fmtMinShort(avg);
@@ -541,7 +551,7 @@
       return '<div class="log-row" data-id="'+o.id+'">'
         + '<div class="seq-tag num">#'+(o.seq||'-')+'</div>'
         + '<div class="times"><div class="range num">'+fmtClock(o.start)+' → '+fmtClock(o.end)+'</div>'+noteHtml+'</div>'
-        + '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(o.fee||0)+'</div></div>'
+        + '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(calcFee(o.duration))+'</div></div>'
         + '<button class="del" data-id="'+o.id+'">刪除</button>'
         + '</div>';
     }).join('');
@@ -665,12 +675,12 @@
         new Date(o.start).toLocaleString('zh-TW', {hour12:false}),
         new Date(o.end).toLocaleString('zh-TW', {hour12:false}),
         Number((o.duration/60000).toFixed(1)),
-        o.fee || 0,
+        calcFee(o.duration),
         o.note || ''
       ]);
     });
     const totalMin = todays.reduce((a,o)=>a+o.duration,0)/60000;
-    const totalFee = todays.reduce((a,o)=>a+(o.fee||0),0);
+    const totalFee = todays.reduce((a,o)=>a+calcFee(o.duration),0);
     rows.push([]);
     rows.push(['總計','','', Number(totalMin.toFixed(1)), Number(totalFee.toFixed(1)), '共 '+todays.length+' 筆']);
 
