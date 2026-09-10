@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>外送計時本</title>
+<title>外送計時紀錄本</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#14171A;
@@ -188,17 +189,19 @@
 
   .add-more-btn{
     width:100%;
-    border:1px dashed var(--line);
+    border:none;
     border-radius:10px;
-    padding:12px 16px;
-    background:none;
-    color:var(--muted);
+    padding:15px 16px;
+    background:var(--go);
+    color:#0B1310;
     font-family:'Noto Sans TC', sans-serif;
-    font-size:14px; font-weight:600;
+    font-size:15.5px; font-weight:700;
     cursor:pointer;
     margin-bottom:22px;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.18), 0 10px 24px -12px rgba(51,193,122,0.55);
+    transition:transform .08s ease;
   }
-  .add-more-btn:hover{ color:var(--text); border-color:#454C53; }
+  .add-more-btn:active{ transform:translateY(1px); box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18); }
 
   .stats{
     margin-top:4px; margin-bottom:22px;
@@ -216,6 +219,23 @@
   .stat .val{ font-size:20px; font-weight:600; }
   .stat .val.fee{ color:var(--stop); }
   .stat .lbl{ margin-top:4px; font-size:12px; color:var(--muted); }
+
+  .export-btn{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:13px 16px;
+    background:var(--panel);
+    color:var(--text);
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:14.5px; font-weight:700;
+    cursor:pointer;
+    margin-bottom:22px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:border-color .2s ease, background-color .25s ease;
+  }
+  .export-btn:hover{ border-color:#454C53; }
+  .export-btn:active{ transform:translateY(1px); }
 
   .log-section{ margin-top:0; }
   .log-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
@@ -275,7 +295,7 @@
       <span class="count" id="activeCount">0 張訂單計時中</span>
     </div>
     <div id="activeList"></div>
-    <button class="add-more-btn" id="addMoreBtn">＋ 再接一單，同時計時</button>
+    <button class="add-more-btn" id="addMoreBtn">＋ 再連一單，同時計時</button>
   </div>
 
   <div class="stats">
@@ -284,6 +304,8 @@
     <div class="stat"><div class="val num" id="statAvg">0:00</div><div class="lbl">平均每趟</div></div>
     <div class="stat"><div class="val num fee" id="statFee">NT$0</div><div class="lbl">今日保障費用</div></div>
   </div>
+
+  <button class="export-btn" id="exportBtn">⬇ 匯出今日紀錄（Excel）</button>
 
   <div class="log-section">
     <div class="log-head">
@@ -329,6 +351,7 @@
     statFee: document.getElementById('statFee'),
     logList: document.getElementById('logList'),
     clearAll: document.getElementById('clearAll'),
+    exportBtn: document.getElementById('exportBtn'),
     saveWarn: document.getElementById('saveWarn'),
     themeToggle: document.getElementById('themeToggle'),
     themeLabel: document.getElementById('themeLabel'),
@@ -347,13 +370,15 @@
     if(h>0) return h+':'+pad(m);
     return '0:'+pad(Math.round(totalMin));
   }
-  // 專法保障費用：花費時間(分) x 245 / 60
+  // 專法保障費用：花費時間(分) x 245 / 60，四捨五入到小數點後一位，未滿 45 元則以 45 元計
   function calcFee(ms){
     const minutes = ms/60000;
-    return Math.round(minutes * 245 / 60);
+    let fee = Math.round(minutes * 245 / 60 * 10) / 10;
+    if(fee < 45) fee = 45;
+    return fee;
   }
   function fmtMoney(n){
-    return 'NT$'+Math.round(n).toLocaleString('zh-Hant');
+    return 'NT$'+n.toLocaleString('zh-Hant', {minimumFractionDigits:1, maximumFractionDigits:1});
   }
   function fmtClock(ts){
     const d = new Date(ts);
@@ -615,6 +640,55 @@
     await saveOrders();
     renderStats();
     renderLog();
+  });
+
+  function todayDateStr(){
+    const d = new Date();
+    return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());
+  }
+
+  el.exportBtn.addEventListener('click', async ()=>{
+    if(typeof XLSX === 'undefined'){
+      alert('匯出功能載入失敗，請確認網路連線後重新整理再試一次。');
+      return;
+    }
+    const todays = orders.filter(o => isToday(o.end)).sort((a,b)=>a.start-b.start);
+    if(todays.length === 0){
+      alert('今天還沒有已完成的紀錄可以匯出。');
+      return;
+    }
+
+    const rows = [['單號','接單時間','完成時間','耗時(分)','保障費用(NT$)','備註']];
+    todays.forEach(o=>{
+      rows.push([
+        o.seq || '',
+        new Date(o.start).toLocaleString('zh-TW', {hour12:false}),
+        new Date(o.end).toLocaleString('zh-TW', {hour12:false}),
+        Number((o.duration/60000).toFixed(1)),
+        o.fee || 0,
+        o.note || ''
+      ]);
+    });
+    const totalMin = todays.reduce((a,o)=>a+o.duration,0)/60000;
+    const totalFee = todays.reduce((a,o)=>a+(o.fee||0),0);
+    rows.push([]);
+    rows.push(['總計','','', Number(totalMin.toFixed(1)), Number(totalFee.toFixed(1)), '共 '+todays.length+' 筆']);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:6},{wch:20},{wch:20},{wch:10},{wch:14},{wch:24}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '今日紀錄');
+    XLSX.writeFile(wb, '外送計時_'+todayDateStr()+'.xlsx');
+
+    setTimeout(async ()=>{
+      const clearIt = confirm('已匯出今日 '+todays.length+' 筆紀錄。\n要清空今日的紀錄嗎？（其他日期的紀錄不受影響，此動作無法復原）\n\n確定＝清空今日紀錄　取消＝保留紀錄');
+      if(clearIt){
+        orders = orders.filter(o => !isToday(o.end));
+        await saveOrders();
+        renderStats();
+        renderLog();
+      }
+    }, 300);
   });
 
   (async function init(){
