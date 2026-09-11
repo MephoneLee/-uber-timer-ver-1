@@ -150,6 +150,17 @@
     border-radius:20px;
   }
   .started-at{ font-size:12px; color:var(--muted); }
+  .start-edit{
+    background:none;
+    border:none;
+    border-bottom:1px dashed var(--muted);
+    color:var(--muted);
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12px;
+    padding:0 0 1px;
+    width:58px;
+  }
+  .start-edit:focus{ outline:none; border-bottom-color:var(--text); color:var(--text); }
   .cancel-btn{
     background:none; border:none; color:#5C636B;
     font-size:12px; cursor:pointer; padding:2px 0;
@@ -262,8 +273,19 @@
   .log-row .dur-wrap{ text-align:right; flex-shrink:0; }
   .log-row .dur{ font-size:15px; font-weight:600; color:var(--go); }
   .log-row .fee{ font-size:12px; color:var(--stop); margin-top:2px; }
-  .log-row .del{ background:none; border:none; color:#5C636B; font-size:12px; cursor:pointer; padding:4px 0 4px 8px; flex-shrink:0; }
+  .log-row .del{ background:none; border:none; color:#5C636B; font-size:12px; cursor:pointer; padding:4px 6px; }
   .log-row .del:hover{ color:var(--danger); }
+
+  .log-row-actions{
+    display:flex; align-items:center; justify-content:flex-end; gap:4px;
+    margin-top:8px; padding-top:8px;
+    border-top:1px dashed var(--line);
+  }
+  .log-row .restore{
+    background:none; border:none; color:var(--go);
+    font-size:12px; font-weight:600; cursor:pointer; padding:4px 6px;
+  }
+  .log-row .restore:hover{ color:var(--go-dim); text-decoration:underline; }
 
   .empty{ padding:28px 16px; text-align:center; color:var(--muted); font-size:13.5px; line-height:1.6; }
 
@@ -298,7 +320,7 @@
       <span class="count" id="activeCount">0 張訂單計時中</span>
     </div>
     <div id="activeList"></div>
-    <button class="add-more-btn" id="addMoreBtn">＋ 再連一單，同時計時</button>
+    <button class="add-more-btn" id="addMoreBtn">＋ 再連一單，開始計時</button>
   </div>
 
   <div class="stats">
@@ -523,9 +545,12 @@
     }
     const sorted = [...active].sort((a,b)=>a.start-b.start);
     el.activeList.innerHTML = sorted.map(o => {
+      const d = new Date(o.start);
+      const timeVal = pad(d.getHours())+':'+pad(d.getMinutes());
       return '<div class="card" data-id="'+o.id+'">'
         + '<div class="card-top">'
-        +   '<div class="card-badges"><span class="seq">#'+o.seq+'</span><span class="started-at">接單 '+fmtClock(o.start)+'</span></div>'
+        +   '<div class="card-badges"><span class="seq">#'+o.seq+'</span>'
+        +     '<span class="started-at">接單 <input type="time" class="start-edit" data-start-edit="'+o.id+'" value="'+timeVal+'"></span></div>'
         +   '<button class="cancel-btn" data-cancel="'+o.id+'">取消</button>'
         + '</div>'
         + '<div class="card-timer num" data-start="'+o.start+'">'+fmtHMS(Date.now()-o.start)+'</div>'
@@ -561,6 +586,9 @@
         +   '<div class="seq-tag num">#'+(o.seq||'-')+'</div>'
         +   '<div class="times"><div class="range num">'+fmtClock(o.start)+' → '+fmtClock(o.end)+'</div>'+noteHtml+'</div>'
         +   '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(fee)+'</div></div>'
+        + '</div>'
+        + '<div class="log-row-actions">'
+        +   '<button class="restore" data-restore="'+o.id+'">回到進行中</button>'
         +   '<button class="del" data-id="'+o.id+'">刪除</button>'
         + '</div>'
         + '</div>';
@@ -618,6 +646,18 @@
     renderActiveCards();
   }
 
+  async function restoreToActive(id){
+    const idx = orders.findIndex(o=>o.id===id);
+    if(idx === -1) return;
+    if(!confirm('把這筆紀錄復原成「進行中」嗎？會從紀錄清單移除，並繼續從原本的接單時間計時。')) return;
+    const o = orders[idx];
+    orders.splice(idx, 1);
+    active.push({ id: uid(), seq: o.seq, start: o.start, note: o.note || '' });
+    await saveOrders();
+    await saveActive();
+    renderAll();
+  }
+
   function scheduleNoteSave(id, value){
     const o = active.find(o=>o.id===id);
     if(o) o.note = value;
@@ -642,7 +682,34 @@
     if(input){ scheduleNoteSave(input.getAttribute('data-note'), input.value); }
   });
 
+  el.activeList.addEventListener('change', async (e)=>{
+    const input = e.target.closest('[data-start-edit]');
+    if(!input) return;
+    const id = input.getAttribute('data-start-edit');
+    const o = active.find(o=>o.id===id);
+    if(!o) return;
+    const parts = input.value.split(':');
+    if(parts.length !== 2) return;
+    const hh = Number(parts[0]), mm = Number(parts[1]);
+    if(isNaN(hh) || isNaN(mm)) return;
+
+    const d = new Date(o.start);
+    d.setHours(hh, mm, 0, 0);
+    let newStart = d.getTime();
+    if(newStart > Date.now()){
+      alert('接單時間不能晚於現在，已自動調整為現在時間。');
+      newStart = Date.now();
+    }
+    o.start = newStart;
+    await saveActive();
+    renderActiveCards();
+    tick();
+  });
+
   el.logList.addEventListener('click', async (e)=>{
+    const restoreBtn = e.target.closest('[data-restore]');
+    if(restoreBtn){ await restoreToActive(restoreBtn.getAttribute('data-restore')); return; }
+
     const btn = e.target.closest('.del');
     if(!btn) return;
     const id = btn.getAttribute('data-id');
