@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>外送計時本</title>
+<title>🐝 蜜蜂的外送時間紀錄簿</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%9D%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -276,7 +277,7 @@
 
   <header>
     <div>
-      <h1>外送計時本</h1>
+      <h1>🐝 蜜蜂的外送時間紀錄簿</h1>
       <p>可同時接好幾張單，各自獨立計時，完成順序不拘。</p>
     </div>
     <button class="theme-toggle" id="themeToggle" type="button">
@@ -296,7 +297,7 @@
       <span class="count" id="activeCount">0 張訂單計時中</span>
     </div>
     <div id="activeList"></div>
-    <button class="add-more-btn" id="addMoreBtn">＋ 再連一單，同時計時</button>
+    <button class="add-more-btn" id="addMoreBtn">＋ 再連一單，開始計時</button>
   </div>
 
   <div class="stats">
@@ -668,27 +669,27 @@
       return;
     }
 
-    const rows = [['單號','接單時間','完成時間','耗時(分)','保障費用(NT$)','備註']];
+    const rows = [['單號','接單時間','完成時間','計費耗時(分)','保障費用(NT$)','備註']];
     todays.forEach(o=>{
       rows.push([
         o.seq || '',
         new Date(o.start).toLocaleString('zh-TW', {hour12:false}),
         new Date(o.end).toLocaleString('zh-TW', {hour12:false}),
-        Number((o.duration/60000).toFixed(1)),
+        roundedMinutes(o.duration),
         calcFee(o.duration),
         o.note || ''
       ]);
     });
-    const totalMin = todays.reduce((a,o)=>a+o.duration,0)/60000;
+    const totalMin = todays.reduce((a,o)=>a+roundedMinutes(o.duration),0);
     const totalFee = todays.reduce((a,o)=>a+calcFee(o.duration),0);
     rows.push([]);
-    rows.push(['總計','','', Number(totalMin.toFixed(1)), Number(totalFee.toFixed(1)), '共 '+todays.length+' 筆']);
+    rows.push(['總計','','', totalMin, Number(totalFee.toFixed(1)), '共 '+todays.length+' 筆']);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{wch:6},{wch:20},{wch:20},{wch:10},{wch:14},{wch:24}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '今日紀錄');
-    XLSX.writeFile(wb, '外送計時_'+todayDateStr()+'.xlsx');
+    XLSX.writeFile(wb, '蜜蜂外送紀錄_'+todayDateStr()+'.xlsx');
 
     setTimeout(async ()=>{
       const clearIt = confirm('已匯出今日 '+todays.length+' 筆紀錄。\n要清空今日的紀錄嗎？（其他日期的紀錄不受影響，此動作無法復原）\n\n確定＝清空今日紀錄　取消＝保留紀錄');
