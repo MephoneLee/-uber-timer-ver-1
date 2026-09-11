@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>🐝 外送時間紀錄簿 🐝</title>
+<title>🐝外送時間紀錄簿🐝</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%9D%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -246,8 +246,9 @@
   .clear-all:hover{ color:var(--danger); }
 
   .log-list{ background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
-  .log-row{ display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line); }
+  .log-row{ padding:13px 16px; border-bottom:1px solid var(--line); }
   .log-row:last-child{ border-bottom:none; }
+  .log-row-main{ display:flex; align-items:center; gap:10px; }
   .log-row .seq-tag{
     font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:12px; color:var(--muted);
     width:26px; flex-shrink:0;
@@ -277,7 +278,7 @@
 
   <header>
     <div>
-      <h1>🐝 外送時間紀錄簿 🐝</h1>
+      <h1>🐝外送時間紀錄簿🐝</h1>
       <p>可同時接好幾張單，各自獨立計時，完成順序不拘。</p>
     </div>
     <button class="theme-toggle" id="themeToggle" type="button">
@@ -297,7 +298,7 @@
       <span class="count" id="activeCount">0 張訂單計時中</span>
     </div>
     <div id="activeList"></div>
-    <button class="add-more-btn" id="addMoreBtn">＋ 再連一單，開始計時</button>
+    <button class="add-more-btn" id="addMoreBtn">＋ 再連一單，同時計時</button>
   </div>
 
   <div class="stats">
@@ -382,9 +383,14 @@
     const y = totalSeconds % 60;
     return y >= 30 ? x+1 : x;
   }
+  // 保障費用：依外送專法子法規定——
+  // 先計算至小數點第2位，再「無條件進位」（非四捨五入）到小數點第1位，且不得低於45元。
   function calcFee(ms){
     const minutes = roundedMinutes(ms);
-    let fee = Math.round(minutes * 245 / 60 * 10) / 10;
+    const raw = minutes * 245 / 60;
+    const cents = Math.round(raw * 100);      // 先算到小數第2位（以「分」為單位的整數，避免浮點誤差）
+    const tenths = Math.ceil(cents / 10);     // 無條件進位到小數第1位
+    let fee = tenths / 10;
     if(fee < 45) fee = 45;
     return fee;
   }
@@ -549,11 +555,14 @@
     const sorted = [...orders].sort((a,b)=>b.end-a.end);
     el.logList.innerHTML = sorted.map((o)=>{
       const noteHtml = o.note ? '<div class="note">'+escapeHtml(o.note)+'</div>' : '';
+      const fee = calcFee(o.duration);
       return '<div class="log-row" data-id="'+o.id+'">'
-        + '<div class="seq-tag num">#'+(o.seq||'-')+'</div>'
-        + '<div class="times"><div class="range num">'+fmtClock(o.start)+' → '+fmtClock(o.end)+'</div>'+noteHtml+'</div>'
-        + '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(calcFee(o.duration))+'</div></div>'
-        + '<button class="del" data-id="'+o.id+'">刪除</button>'
+        + '<div class="log-row-main">'
+        +   '<div class="seq-tag num">#'+(o.seq||'-')+'</div>'
+        +   '<div class="times"><div class="range num">'+fmtClock(o.start)+' → '+fmtClock(o.end)+'</div>'+noteHtml+'</div>'
+        +   '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(fee)+'</div></div>'
+        +   '<button class="del" data-id="'+o.id+'">刪除</button>'
+        + '</div>'
         + '</div>';
     }).join('');
   }
@@ -643,6 +652,7 @@
     renderStats();
     renderLog();
   });
+
 
   el.clearAll.addEventListener('click', async ()=>{
     if(orders.length === 0) return;
