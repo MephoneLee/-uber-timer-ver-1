@@ -233,8 +233,24 @@
   .stat .val.fee{ color:var(--stop); }
   .stat .lbl{ margin-top:4px; font-size:12px; color:var(--muted); }
 
+  .export-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:22px;
+  }
+  #exportDate{
+    flex:0 0 128px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:0 10px;
+    background:var(--panel);
+    color:var(--text);
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:13px;
+    text-align:center;
+  }
   .export-btn{
-    width:100%;
+    flex:1;
     border:1px solid var(--line);
     border-radius:10px;
     padding:13px 16px;
@@ -243,7 +259,6 @@
     font-family:'Noto Sans TC', sans-serif;
     font-size:14.5px; font-weight:700;
     cursor:pointer;
-    margin-bottom:22px;
     display:flex; align-items:center; justify-content:center; gap:8px;
     transition:border-color .2s ease, background-color .25s ease;
   }
@@ -330,7 +345,10 @@
     <div class="stat"><div class="val num fee" id="statFee">NT$0</div><div class="lbl">今日保障費用</div></div>
   </div>
 
-  <button class="export-btn" id="exportBtn">⬇ 匯出今日紀錄（Excel）</button>
+  <div class="export-row">
+    <input type="date" id="exportDate">
+    <button class="export-btn" id="exportBtn">⬇ 匯出該日紀錄（Excel）</button>
+  </div>
 
   <div class="log-section">
     <div class="log-head">
@@ -377,6 +395,7 @@
     logList: document.getElementById('logList'),
     clearAll: document.getElementById('clearAll'),
     exportBtn: document.getElementById('exportBtn'),
+    exportDate: document.getElementById('exportDate'),
     saveWarn: document.getElementById('saveWarn'),
     themeToggle: document.getElementById('themeToggle'),
     themeLabel: document.getElementById('themeLabel'),
@@ -730,9 +749,12 @@
     renderLog();
   });
 
-  function todayDateStr(){
-    const d = new Date();
-    return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());
+  function dateStrOf(ts){
+    const d = new Date(ts);
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  }
+  function dateStrCompact(dateStr){
+    return dateStr.replace(/-/g, '');
   }
 
   el.exportBtn.addEventListener('click', async ()=>{
@@ -740,14 +762,19 @@
       alert('匯出功能載入失敗，請確認網路連線後重新整理再試一次。');
       return;
     }
-    const todays = orders.filter(o => isToday(o.end)).sort((a,b)=>a.start-b.start);
-    if(todays.length === 0){
-      alert('今天還沒有已完成的紀錄可以匯出。');
+    const targetDate = el.exportDate.value; // YYYY-MM-DD
+    if(!targetDate){
+      alert('請先選擇要匯出的日期。');
+      return;
+    }
+    const matched = orders.filter(o => dateStrOf(o.end) === targetDate).sort((a,b)=>a.start-b.start);
+    if(matched.length === 0){
+      alert(targetDate+' 這天還沒有已完成的紀錄可以匯出。');
       return;
     }
 
     const rows = [['單號','接單時間','完成時間','計費耗時(分)','保障費用(NT$)','備註']];
-    todays.forEach(o=>{
+    matched.forEach(o=>{
       rows.push([
         o.seq || '',
         new Date(o.start).toLocaleString('zh-TW', {hour12:false}),
@@ -757,21 +784,21 @@
         o.note || ''
       ]);
     });
-    const totalMin = todays.reduce((a,o)=>a+roundedMinutes(o.duration),0);
-    const totalFee = todays.reduce((a,o)=>a+calcFee(o.duration),0);
+    const totalMin = matched.reduce((a,o)=>a+roundedMinutes(o.duration),0);
+    const totalFee = matched.reduce((a,o)=>a+calcFee(o.duration),0);
     rows.push([]);
-    rows.push(['總計','','', totalMin, Number(totalFee.toFixed(1)), '共 '+todays.length+' 筆']);
+    rows.push(['總計','','', totalMin, Number(totalFee.toFixed(1)), '共 '+matched.length+' 筆']);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{wch:6},{wch:20},{wch:20},{wch:10},{wch:14},{wch:24}];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '今日紀錄');
-    XLSX.writeFile(wb, '蜜蜂外送紀錄_'+todayDateStr()+'.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, targetDate+' 紀錄');
+    XLSX.writeFile(wb, '蜜蜂外送紀錄_'+dateStrCompact(targetDate)+'.xlsx');
 
     setTimeout(async ()=>{
-      const clearIt = confirm('已匯出今日 '+todays.length+' 筆紀錄。\n要清空今日的紀錄嗎？（其他日期的紀錄不受影響，此動作無法復原）\n\n確定＝清空今日紀錄　取消＝保留紀錄');
+      const clearIt = confirm('已匯出 '+targetDate+' 共 '+matched.length+' 筆紀錄。\n要清空這天的紀錄嗎？（其他日期的紀錄不受影響，此動作無法復原）\n\n確定＝清空這天紀錄　取消＝保留紀錄');
       if(clearIt){
-        orders = orders.filter(o => !isToday(o.end));
+        orders = orders.filter(o => dateStrOf(o.end) !== targetDate);
         await saveOrders();
         renderStats();
         renderLog();
@@ -783,6 +810,7 @@
     await loadTheme();
     await loadAll();
     renderAll();
+    el.exportDate.value = dateStrOf(Date.now());
     tickHandle = setInterval(tick, 500);
 
     // URL-triggered actions, for iOS Shortcuts / Back Tap automation.
