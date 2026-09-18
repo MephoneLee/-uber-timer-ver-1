@@ -265,6 +265,137 @@
   .export-btn:hover{ border-color:#454C53; }
   .export-btn:active{ transform:translateY(1px); }
 
+  .range-section, .backfill-section{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px 18px;
+    margin-bottom:22px;
+  }
+  .range-section .log-head, .backfill-section .log-head{ margin-bottom:4px; }
+
+  .section-summary{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    cursor:pointer;
+    list-style:none;
+  }
+  .section-summary::-webkit-details-marker{ display:none; }
+  .section-summary::marker{ content:''; }
+  .section-summary h2{
+    font-family:'Noto Serif TC', serif; font-size:15px; font-weight:700; margin:0;
+  }
+  .section-summary .chevron{
+    color:var(--muted);
+    font-size:13px;
+    transition:transform .2s ease;
+    flex-shrink:0;
+  }
+  details[open] > .section-summary .chevron{ transform:rotate(90deg); }
+  .section-body{ margin-top:14px; }
+  .section-hint{
+    margin:0 0 14px;
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.6;
+  }
+  .range-inputs{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .range-inputs input[type="date"]{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:13px;
+    text-align:center;
+  }
+  .range-sep{ color:var(--muted); font-size:13px; flex-shrink:0; }
+
+  .range-result{
+    margin-top:14px;
+  }
+  .range-result .range-stats{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:12px;
+    margin-bottom:12px;
+  }
+  .range-result .range-stat{
+    text-align:center;
+    padding:14px 6px;
+    position:relative;
+  }
+  .range-result .range-stat + .range-stat::before{
+    content:""; position:absolute; left:0; top:12px; bottom:12px; width:1px; background:var(--line);
+  }
+  .range-result .range-stat .val{ font-size:17px; font-weight:600; }
+  .range-result .range-stat .val.fee{ color:var(--stop); }
+  .range-result .range-stat .lbl{ margin-top:3px; font-size:11.5px; color:var(--muted); }
+
+  .range-days{ border-top:1px dashed var(--line); padding-top:10px; }
+  .range-day-row{
+    display:flex; align-items:center; gap:8px;
+    font-size:12.5px; padding:5px 0;
+  }
+  .range-day-row .rd-date{ font-family:'IBM Plex Mono', ui-monospace, monospace; color:var(--text); flex-shrink:0; width:88px; }
+  .range-day-row .rd-src{ color:var(--muted); font-size:11px; flex-shrink:0; }
+  .range-day-row .rd-count{ color:var(--muted); flex:1; text-align:right; }
+  .range-day-row .rd-fee{ font-family:'IBM Plex Mono', ui-monospace, monospace; color:var(--stop); width:76px; text-align:right; flex-shrink:0; }
+
+  .range-export-btn{ margin-top:14px; }
+
+  .backfill-form{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .backfill-form input[type="date"]{ grid-column:1 / -1; }
+  .backfill-form input{
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 10px;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:13px;
+  }
+  .backfill-form input::placeholder{ color:#5C636B; font-family:'Noto Sans TC', sans-serif; font-size:12px; }
+  .backfill-form .bf-save{
+    grid-column:1 / -1;
+    border:none;
+    border-radius:8px;
+    padding:11px;
+    background:var(--go);
+    color:#0B1310;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:14px; font-weight:700;
+    cursor:pointer;
+  }
+  .backfill-form .bf-save:active{ transform:translateY(1px); }
+
+  .bf-list{ border-top:1px dashed var(--line); padding-top:8px; }
+  .bf-row{
+    display:flex; align-items:center; gap:8px;
+    font-size:12.5px; padding:6px 0;
+  }
+  .bf-row .rd-date{ font-family:'IBM Plex Mono', ui-monospace, monospace; width:88px; flex-shrink:0; }
+  .bf-row .rd-detail{ flex:1; color:var(--muted); }
+  .bf-row .rd-fee{ font-family:'IBM Plex Mono', ui-monospace, monospace; color:var(--stop); flex-shrink:0; }
+  .bf-row .bf-del{ background:none; border:none; color:#5C636B; font-size:12px; cursor:pointer; flex-shrink:0; }
+  .bf-row .bf-del:hover{ color:var(--danger); }
+  .bf-empty{ color:var(--muted); font-size:12.5px; padding:6px 0; }
+
   .log-section{ margin-top:0; }
   .log-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
   .log-head h2{ font-family:'Noto Serif TC', serif; font-size:15px; font-weight:700; margin:0; }
@@ -350,6 +481,36 @@
     <button class="export-btn" id="exportBtn">⬇ 匯出該日紀錄（Excel）</button>
   </div>
 
+  <details class="range-section">
+    <summary class="section-summary"><h2>區間結算</h2><span class="chevron">▸</span></summary>
+    <div class="section-body">
+      <p class="section-hint">選一段日期（例如 Uber 兩週結算週期），加總這段期間的保障費用。</p>
+      <div class="range-inputs">
+        <input type="date" id="rangeStart">
+        <span class="range-sep">至</span>
+        <input type="date" id="rangeEnd">
+      </div>
+      <button class="export-btn" id="rangeCalcBtn">計算區間總額</button>
+      <div class="range-result" id="rangeResult" style="display:none;"></div>
+      <button class="export-btn range-export-btn" id="rangeExportBtn" style="display:none;">⬇ 匯出區間報表（Excel）</button>
+    </div>
+  </details>
+
+  <details class="backfill-section">
+    <summary class="section-summary"><h2>補登舊資料</h2><span class="chevron">▸</span></summary>
+    <div class="section-body">
+      <p class="section-hint">某一天的紀錄已經清空了嗎？把當時匯出 Excel 裡的數字填回來，區間結算才算得到那一天。</p>
+      <div class="backfill-form">
+        <input type="date" id="bfDate">
+        <input type="number" id="bfCount" placeholder="單數" inputmode="numeric">
+        <input type="number" id="bfMin" placeholder="計費分鐘合計" inputmode="numeric">
+        <input type="number" id="bfFee" placeholder="保障費用合計" inputmode="decimal" step="0.1">
+        <button class="bf-save" id="bfSaveBtn">儲存這天</button>
+      </div>
+      <div class="bf-list" id="bfList"></div>
+    </div>
+  </details>
+
   <div class="log-section">
     <div class="log-head">
       <h2>紀錄</h2>
@@ -375,9 +536,11 @@
   const ORDERS_KEY = 'orders';
   const ACTIVE_KEY = 'active_orders';
   const OLD_ACTIVE_KEY = 'active_start'; // migration from single-order version
+  const SUMMARY_KEY = 'daily_summaries'; // { 'YYYY-MM-DD': {count, totalMin, totalFee, source} }
 
   let orders = [];   // completed: {id, seq, start, end, duration, note}
   let active = [];   // in-progress: {id, seq, start, note}
+  let dailySummaries = {};
   let tickHandle = null;
   let noteSaveTimer = null;
 
@@ -399,6 +562,17 @@
     saveWarn: document.getElementById('saveWarn'),
     themeToggle: document.getElementById('themeToggle'),
     themeLabel: document.getElementById('themeLabel'),
+    rangeStart: document.getElementById('rangeStart'),
+    rangeEnd: document.getElementById('rangeEnd'),
+    rangeCalcBtn: document.getElementById('rangeCalcBtn'),
+    rangeResult: document.getElementById('rangeResult'),
+    rangeExportBtn: document.getElementById('rangeExportBtn'),
+    bfDate: document.getElementById('bfDate'),
+    bfCount: document.getElementById('bfCount'),
+    bfMin: document.getElementById('bfMin'),
+    bfFee: document.getElementById('bfFee'),
+    bfSaveBtn: document.getElementById('bfSaveBtn'),
+    bfList: document.getElementById('bfList'),
   };
 
   function pad(n){ return String(n).padStart(2,'0'); }
@@ -508,6 +682,11 @@
         }
       }catch(e2){ /* no old data, fine */ }
     }
+
+    try{
+      const s = await storageGet(SUMMARY_KEY);
+      dailySummaries = s ? JSON.parse(s.value) : {};
+    }catch(e){ dailySummaries = {}; }
   }
 
   async function saveOrders(){
@@ -518,8 +697,24 @@
     const r = await storageSet(ACTIVE_KEY, JSON.stringify(active));
     setSaveWarn(!r);
   }
+  async function saveSummaries(){
+    const r = await storageSet(SUMMARY_KEY, JSON.stringify(dailySummaries));
+    setSaveWarn(!r);
+  }
   function setSaveWarn(bad){
     el.saveWarn.style.display = bad ? 'block' : 'none';
+  }
+
+  // 在清除某天/全部紀錄之前，先把那天的小計存下來，區間結算才不會因為清空而少算。
+  function archiveDate(dateStr){
+    const dayOrders = orders.filter(o => dateStrOf(o.end) === dateStr);
+    if(dayOrders.length === 0) return;
+    dailySummaries[dateStr] = {
+      count: dayOrders.length,
+      totalMin: dayOrders.reduce((a,o)=>a+roundedMinutes(o.duration),0),
+      totalFee: Number(dayOrders.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1)),
+      source: 'auto'
+    };
   }
 
   // ---- theme (light / dark) ----
@@ -743,10 +938,14 @@
   el.clearAll.addEventListener('click', async ()=>{
     if(orders.length === 0) return;
     if(!confirm('清空所有紀錄？此動作無法復原。')) return;
+    const distinctDates = [...new Set(orders.map(o => dateStrOf(o.end)))];
+    distinctDates.forEach(d => archiveDate(d));
+    await saveSummaries();
     orders = [];
     await saveOrders();
     renderStats();
     renderLog();
+    renderBfList();
   });
 
   function dateStrOf(ts){
@@ -798,12 +997,159 @@
     setTimeout(async ()=>{
       const clearIt = confirm('已匯出 '+targetDate+' 共 '+matched.length+' 筆紀錄。\n要清空這天的紀錄嗎？（其他日期的紀錄不受影響，此動作無法復原）\n\n確定＝清空這天紀錄　取消＝保留紀錄');
       if(clearIt){
+        archiveDate(targetDate);
+        await saveSummaries();
         orders = orders.filter(o => dateStrOf(o.end) !== targetDate);
         await saveOrders();
         renderStats();
         renderLog();
+        renderBfList();
       }
     }, 300);
+  });
+
+  // ---- 補登舊資料（已清空日期的手動彙總）----
+
+  function renderBfList(){
+    const dates = Object.keys(dailySummaries).sort((a,b)=>b.localeCompare(a));
+    if(dates.length === 0){
+      el.bfList.innerHTML = '<div class="bf-empty">尚未有補登或封存的每日彙總資料。</div>';
+      return;
+    }
+    el.bfList.innerHTML = dates.map(d=>{
+      const s = dailySummaries[d];
+      const srcLabel = s.source === 'manual' ? '手動補登' : '自動封存';
+      return '<div class="bf-row" data-date="'+d+'">'
+        + '<span class="rd-date num">'+d+'</span>'
+        + '<span class="rd-detail">'+srcLabel+'・'+s.count+' 單・'+s.totalMin+' 分</span>'
+        + '<span class="rd-fee num">'+fmtMoney(s.totalFee)+'</span>'
+        + '<button class="bf-del" data-bf-del="'+d+'">刪除</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  el.bfSaveBtn.addEventListener('click', async ()=>{
+    const d = el.bfDate.value;
+    if(!d){ alert('請先選擇日期。'); return; }
+    const count = Number(el.bfCount.value) || 0;
+    const totalMin = Number(el.bfMin.value) || 0;
+    const totalFee = Number(el.bfFee.value) || 0;
+    if(count <= 0 || totalFee <= 0){
+      alert('請至少填入單數與保障費用合計。');
+      return;
+    }
+    const hasLive = orders.some(o => dateStrOf(o.end) === d);
+    if(hasLive && !confirm(d+' 目前還有未清空的明細紀錄，補登會在區間結算時被明細資料優先取代，仍要儲存這筆補登資料備用嗎？')){
+      return;
+    }
+    dailySummaries[d] = { count, totalMin, totalFee: Number(totalFee.toFixed(1)), source: 'manual' };
+    await saveSummaries();
+    renderBfList();
+    el.bfDate.value = '';
+    el.bfCount.value = '';
+    el.bfMin.value = '';
+    el.bfFee.value = '';
+  });
+
+  el.bfList.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-bf-del]');
+    if(!btn) return;
+    const d = btn.getAttribute('data-bf-del');
+    if(!confirm('刪除 '+d+' 這筆彙總資料？')) return;
+    delete dailySummaries[d];
+    await saveSummaries();
+    renderBfList();
+  });
+
+  // ---- 區間結算（例如 Uber 兩週結算週期）----
+
+  function addDaysToDateStr(dateStr, delta){
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    dt.setDate(dt.getDate()+delta);
+    return dateStrOf(dt.getTime());
+  }
+
+  function computeRangeTotals(startStr, endStr){
+    const days = [];
+    let totalCount=0, totalMin=0, totalFee=0;
+    let cur = startStr;
+    let guard = 0;
+    while(cur <= endStr && guard < 400){
+      guard++;
+      const liveForDate = orders.filter(o => dateStrOf(o.end) === cur);
+      let count=0, min=0, fee=0, source=null;
+      if(liveForDate.length > 0){
+        count = liveForDate.length;
+        min = liveForDate.reduce((a,o)=>a+roundedMinutes(o.duration),0);
+        fee = Number(liveForDate.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1));
+        source = 'live';
+      }else if(dailySummaries[cur]){
+        count = dailySummaries[cur].count;
+        min = dailySummaries[cur].totalMin;
+        fee = dailySummaries[cur].totalFee;
+        source = dailySummaries[cur].source;
+      }
+      if(count > 0){
+        days.push({ date:cur, count, min, fee, source });
+        totalCount += count; totalMin += min; totalFee += fee;
+      }
+      cur = addDaysToDateStr(cur, 1);
+    }
+    return { days, totalCount, totalMin, totalFee: Number(totalFee.toFixed(1)) };
+  }
+
+  let lastRangeResult = null;
+
+  el.rangeCalcBtn.addEventListener('click', ()=>{
+    const s = el.rangeStart.value, en = el.rangeEnd.value;
+    if(!s || !en){ alert('請選擇起始與結束日期。'); return; }
+    if(s > en){ alert('起始日期不能晚於結束日期。'); return; }
+    const result = computeRangeTotals(s, en);
+    lastRangeResult = { start:s, end:en, ...result };
+
+    const srcLabel = { live:'即時', auto:'自動封存', manual:'手動補登' };
+    const daysHtml = result.days.length === 0
+      ? '<div class="bf-empty">這段期間沒有任何紀錄或彙總資料。</div>'
+      : result.days.map(d=>{
+          return '<div class="range-day-row">'
+            + '<span class="rd-date num">'+d.date+'</span>'
+            + '<span class="rd-src">'+(srcLabel[d.source]||'')+'</span>'
+            + '<span class="rd-count">'+d.count+' 單</span>'
+            + '<span class="rd-fee num">'+fmtMoney(d.fee)+'</span>'
+            + '</div>';
+        }).join('');
+
+    el.rangeResult.innerHTML =
+      '<div class="range-stats">'
+        + '<div class="range-stat"><div class="val num">'+result.totalCount+'</div><div class="lbl">總單數</div></div>'
+        + '<div class="range-stat"><div class="val num">'+result.totalMin+'</div><div class="lbl">計費分鐘合計</div></div>'
+        + '<div class="range-stat"><div class="val num fee">'+fmtMoney(result.totalFee)+'</div><div class="lbl">保障費用合計</div></div>'
+      + '</div>'
+      + '<div class="range-days">'+daysHtml+'</div>';
+    el.rangeResult.style.display = 'block';
+    el.rangeExportBtn.style.display = result.days.length > 0 ? 'flex' : 'none';
+  });
+
+  el.rangeExportBtn.addEventListener('click', ()=>{
+    if(typeof XLSX === 'undefined'){
+      alert('匯出功能載入失敗，請確認網路連線後重新整理再試一次。');
+      return;
+    }
+    if(!lastRangeResult || lastRangeResult.days.length === 0) return;
+
+    const rows = [['日期','單數','計費分鐘合計','保障費用合計(NT$)']];
+    lastRangeResult.days.forEach(d=>{
+      rows.push([d.date, d.count, d.min, d.fee]);
+    });
+    rows.push([]);
+    rows.push(['總計', lastRangeResult.totalCount, lastRangeResult.totalMin, lastRangeResult.totalFee]);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:12},{wch:8},{wch:14},{wch:16}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '區間結算');
+    XLSX.writeFile(wb, '蜜蜂外送區間結算_'+dateStrCompact(lastRangeResult.start)+'_'+dateStrCompact(lastRangeResult.end)+'.xlsx');
   });
 
   (async function init(){
@@ -811,6 +1157,9 @@
     await loadAll();
     renderAll();
     el.exportDate.value = dateStrOf(Date.now());
+    el.rangeEnd.value = dateStrOf(Date.now());
+    el.rangeStart.value = addDaysToDateStr(dateStrOf(Date.now()), -13);
+    renderBfList();
     tickHandle = setInterval(tick, 500);
 
     // URL-triggered actions, for iOS Shortcuts / Back Tap automation.
