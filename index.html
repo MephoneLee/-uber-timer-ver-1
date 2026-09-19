@@ -222,7 +222,7 @@
     border:1px solid var(--line);
     border-radius:14px;
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   }
   .stat{ text-align:center; padding:16px 8px; position:relative; }
   .stat:nth-child(1),.stat:nth-child(2){ border-bottom:1px solid var(--line); }
@@ -327,7 +327,7 @@
   }
   .range-result .range-stats{
     display:grid;
-    grid-template-columns:1fr 1fr 1fr;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);
     background:var(--bg);
     border:1px solid var(--line);
     border-radius:12px;
@@ -360,7 +360,7 @@
 
   .backfill-form{
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
     gap:8px;
     margin-bottom:14px;
   }
@@ -368,6 +368,7 @@
   .backfill-form input{
     min-width:0;
     width:100%;
+    max-width:100%;
     box-sizing:border-box;
     border:1px solid var(--line);
     border-radius:8px;
