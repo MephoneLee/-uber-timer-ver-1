@@ -308,9 +308,12 @@
   }
   .range-inputs input[type="date"]{
     flex:1;
+    min-width:0;
+    width:100%;
+    box-sizing:border-box;
     border:1px solid var(--line);
     border-radius:10px;
-    padding:10px;
+    padding:10px 6px;
     background:var(--bg);
     color:var(--text);
     font-family:'IBM Plex Mono', ui-monospace, monospace;
@@ -363,6 +366,9 @@
   }
   .backfill-form input[type="date"]{ grid-column:1 / -1; }
   .backfill-form input{
+    min-width:0;
+    width:100%;
+    box-sizing:border-box;
     border:1px solid var(--line);
     border-radius:8px;
     padding:9px 10px;
