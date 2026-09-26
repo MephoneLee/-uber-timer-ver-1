@@ -186,6 +186,27 @@
   .note-row input::placeholder{ color:#5C636B; }
   .note-row input:focus{ outline:none; border-color:#454C53; }
 
+  .amount-row{
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:14px;
+  }
+  .amount-row .amount-label{ font-size:12.5px; color:var(--muted); flex-shrink:0; }
+  .amount-row input{
+    flex:1;
+    min-width:0;
+    max-width:100%;
+    box-sizing:border-box;
+    background:transparent;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 12px;
+    font-size:13px;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    color:var(--text);
+  }
+  .amount-row input::placeholder{ color:#5C636B; font-family:'Noto Sans TC', sans-serif; font-size:12px; }
+  .amount-row input:focus{ outline:none; border-color:#454C53; }
+
   .complete-btn{
     width:100%;
     border:none;
@@ -428,8 +449,32 @@
   .log-row .dur-wrap{ text-align:right; flex-shrink:0; }
   .log-row .dur{ font-size:15px; font-weight:600; color:var(--go); }
   .log-row .fee{ font-size:12px; color:var(--stop); margin-top:2px; }
+  .log-row .fee-tag{
+    display:inline-block; margin-top:3px;
+    font-size:10.5px; color:var(--go); font-weight:600;
+  }
   .log-row .del{ background:none; border:none; color:#5C636B; font-size:12px; cursor:pointer; padding:4px 6px; }
   .log-row .del:hover{ color:var(--danger); }
+
+  .log-row-amount{
+    display:flex; align-items:center; gap:8px;
+    margin-top:10px; padding-top:10px;
+    border-top:1px dashed var(--line);
+  }
+  .log-row-amount .amount-label{ font-size:12px; color:var(--muted); flex-shrink:0; }
+  .log-row-amount input{
+    flex:1; min-width:0; max-width:100%;
+    box-sizing:border-box;
+    background:transparent;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:6px 8px;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12.5px;
+    color:var(--text);
+  }
+  .log-row-amount input::placeholder{ color:#5C636B; font-family:'Noto Sans TC', sans-serif; font-size:11.5px; }
+  .log-row-amount input:focus{ outline:none; border-color:#454C53; }
 
   .log-row-actions{
     display:flex; align-items:center; justify-content:flex-end; gap:4px;
@@ -552,6 +597,7 @@
   let dailySummaries = {};
   let tickHandle = null;
   let noteSaveTimer = null;
+  let amountSaveTimer = null;
 
   const el = {
     idlePanel: document.getElementById('idlePanel'),
@@ -620,6 +666,15 @@
   }
   function fmtMoney(n){
     return 'NT$'+n.toLocaleString('zh-Hant', {minimumFractionDigits:1, maximumFractionDigits:1});
+  }
+  // 該筆訂單最終認列的費用：專法保障費用 vs 訂單實際金額，取較大者
+  function finalFee(durationMs, actualAmount){
+    const base = calcFee(durationMs);
+    const amt = Number(actualAmount);
+    if(!isNaN(amt) && amt > base){
+      return Math.round(amt * 10) / 10;
+    }
+    return base;
   }
   function fmtClock(ts){
     const d = new Date(ts);
@@ -721,7 +776,7 @@
     dailySummaries[dateStr] = {
       count: dayOrders.length,
       totalMin: dayOrders.reduce((a,o)=>a+roundedMinutes(o.duration),0),
-      totalFee: Number(dayOrders.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1)),
+      totalFee: Number(dayOrders.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0).toFixed(1)),
       source: 'auto'
     };
   }
@@ -778,6 +833,7 @@
         + '</div>'
         + '<div class="card-timer num" data-start="'+o.start+'">'+fmtHMS(Date.now()-o.start)+'</div>'
         + '<div class="note-row"><input type="text" data-note="'+o.id+'" placeholder="備註（選填，店名或地址）" maxlength="60" value="'+escapeHtml(o.note||'')+'"></div>'
+        + '<div class="amount-row"><span class="amount-label">訂單實際金額</span><input type="number" inputmode="decimal" data-amount="'+o.id+'" placeholder="選填，若知道就填" value="'+(o.actualAmount||'')+'"></div>'
         + '<button class="complete-btn" data-complete="'+o.id+'">完成這一單</button>'
         + '</div>';
     }).join('');
@@ -788,7 +844,7 @@
     const count = todays.length;
     const total = todays.reduce((a,o)=>a+o.duration,0);
     const avg = count ? total/count : 0;
-    const feeTotal = todays.reduce((a,o)=>a+calcFee(o.duration),0);
+    const feeTotal = todays.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0);
     el.statCount.textContent = count;
     el.statTotal.textContent = fmtMinShort(total);
     el.statAvg.textContent = fmtMinShort(avg);
@@ -803,12 +859,20 @@
     const sorted = [...orders].sort((a,b)=>b.end-a.end);
     el.logList.innerHTML = sorted.map((o)=>{
       const noteHtml = o.note ? '<div class="note">'+escapeHtml(o.note)+'</div>' : '';
-      const fee = calcFee(o.duration);
+      const base = calcFee(o.duration);
+      const fee = finalFee(o.duration, o.actualAmount);
+      const usingActual = fee > base;
+      const amountVal = (o.actualAmount===null||o.actualAmount===undefined) ? '' : o.actualAmount;
+      const tagHtml = usingActual ? '<span class="fee-tag">採用訂單金額</span>' : '';
       return '<div class="log-row" data-id="'+o.id+'">'
         + '<div class="log-row-main">'
         +   '<div class="seq-tag num">#'+(o.seq||'-')+'</div>'
         +   '<div class="times"><div class="range num">'+fmtClock(o.start)+' → '+fmtClock(o.end)+'</div>'+noteHtml+'</div>'
-        +   '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(fee)+'</div></div>'
+        +   '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(fee)+'</div>'+tagHtml+'</div>'
+        + '</div>'
+        + '<div class="log-row-amount">'
+        +   '<span class="amount-label">訂單實際金額</span>'
+        +   '<input type="number" inputmode="decimal" data-amount-log="'+o.id+'" placeholder="選填" value="'+amountVal+'">'
         + '</div>'
         + '<div class="log-row-actions">'
         +   '<button class="restore" data-restore="'+o.id+'">回到進行中</button>'
@@ -836,7 +900,7 @@
   // ---- actions ----
 
   async function addOrder(){
-    active.push({ id: uid(), seq: nextSeq(), start: Date.now(), note: '' });
+    active.push({ id: uid(), seq: nextSeq(), start: Date.now(), note: '', actualAmount: null });
     await saveActive();
     renderShell();
     renderActiveCards();
@@ -847,13 +911,16 @@
     if(idx === -1) return;
     const card = el.activeList.querySelector('.card[data-id="'+id+'"]');
     const noteInput = card ? card.querySelector('[data-note]') : null;
+    const amountInput = card ? card.querySelector('[data-amount]') : null;
     const note = noteInput ? noteInput.value.trim() : (active[idx].note||'');
+    const amountVal = amountInput ? amountInput.value.trim() : '';
+    const actualAmount = amountVal === '' ? (active[idx].actualAmount || null) : Number(amountVal);
     const o = active[idx];
     const end = Date.now();
     const duration = end - o.start;
     orders.push({
       id: uid(), seq: o.seq, start: o.start, end,
-      duration, fee: calcFee(duration), note
+      duration, note, actualAmount
     });
     active.splice(idx,1);
     await saveActive();
@@ -875,7 +942,7 @@
     if(!confirm('把這筆紀錄復原成「進行中」嗎？會從紀錄清單移除，並繼續從原本的接單時間計時。')) return;
     const o = orders[idx];
     orders.splice(idx, 1);
-    active.push({ id: uid(), seq: o.seq, start: o.start, note: o.note || '' });
+    active.push({ id: uid(), seq: o.seq, start: o.start, note: o.note || '', actualAmount: o.actualAmount || null });
     await saveOrders();
     await saveActive();
     renderAll();
@@ -886,6 +953,14 @@
     if(o) o.note = value;
     clearTimeout(noteSaveTimer);
     noteSaveTimer = setTimeout(saveActive, 700);
+  }
+
+  function scheduleAmountSave(id, value){
+    const o = active.find(o=>o.id===id);
+    if(!o) return;
+    o.actualAmount = value.trim() === '' ? null : Number(value);
+    clearTimeout(amountSaveTimer);
+    amountSaveTimer = setTimeout(saveActive, 700);
   }
 
   // ---- events ----
@@ -901,8 +976,10 @@
   });
 
   el.activeList.addEventListener('input', (e)=>{
-    const input = e.target.closest('[data-note]');
-    if(input){ scheduleNoteSave(input.getAttribute('data-note'), input.value); }
+    const noteInput = e.target.closest('[data-note]');
+    if(noteInput){ scheduleNoteSave(noteInput.getAttribute('data-note'), noteInput.value); return; }
+    const amountInput = e.target.closest('[data-amount]');
+    if(amountInput){ scheduleAmountSave(amountInput.getAttribute('data-amount'), amountInput.value); return; }
   });
 
   el.activeList.addEventListener('change', async (e)=>{
@@ -943,6 +1020,43 @@
     renderLog();
   });
 
+  let logAmountSaveTimer = null;
+
+  el.logList.addEventListener('input', (e)=>{
+    const input = e.target.closest('[data-amount-log]');
+    if(!input) return;
+    const id = input.getAttribute('data-amount-log');
+    const o = orders.find(o=>o.id===id);
+    if(!o) return;
+    const val = input.value.trim();
+    o.actualAmount = val === '' ? null : Number(val);
+
+    // 即時更新這一列顯示的費用與標籤，不整段重繪以免輸入焦點被中斷
+    const row = el.logList.querySelector('.log-row[data-id="'+id+'"]');
+    if(row){
+      const base = calcFee(o.duration);
+      const fee = finalFee(o.duration, o.actualAmount);
+      const usingActual = fee > base;
+      const feeEl = row.querySelector('.fee');
+      if(feeEl) feeEl.textContent = fmtMoney(fee);
+      let tagEl = row.querySelector('.fee-tag');
+      if(usingActual && !tagEl){
+        const durWrap = row.querySelector('.dur-wrap');
+        if(durWrap){
+          durWrap.insertAdjacentHTML('beforeend', '<span class="fee-tag">採用訂單金額</span>');
+        }
+      }else if(!usingActual && tagEl){
+        tagEl.remove();
+      }
+    }
+
+    clearTimeout(logAmountSaveTimer);
+    logAmountSaveTimer = setTimeout(async ()=>{
+      await saveOrders();
+      renderStats();
+    }, 700);
+  });
+
 
   el.clearAll.addEventListener('click', async ()=>{
     if(orders.length === 0) return;
@@ -981,24 +1095,25 @@
       return;
     }
 
-    const rows = [['單號','接單時間','完成時間','計費耗時(分)','保障費用(NT$)','備註']];
+    const rows = [['單號','接單時間','完成時間','計費耗時(分)','訂單實際金額(NT$)','認列費用(NT$)','備註']];
     matched.forEach(o=>{
       rows.push([
         o.seq || '',
         new Date(o.start).toLocaleString('zh-TW', {hour12:false}),
         new Date(o.end).toLocaleString('zh-TW', {hour12:false}),
         roundedMinutes(o.duration),
-        calcFee(o.duration),
+        (o.actualAmount===null||o.actualAmount===undefined) ? '' : o.actualAmount,
+        finalFee(o.duration, o.actualAmount),
         o.note || ''
       ]);
     });
     const totalMin = matched.reduce((a,o)=>a+roundedMinutes(o.duration),0);
-    const totalFee = matched.reduce((a,o)=>a+calcFee(o.duration),0);
+    const totalFee = matched.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0);
     rows.push([]);
-    rows.push(['總計','','', totalMin, Number(totalFee.toFixed(1)), '共 '+matched.length+' 筆']);
+    rows.push(['總計','','', totalMin, '', Number(totalFee.toFixed(1)), '共 '+matched.length+' 筆']);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:6},{wch:20},{wch:20},{wch:10},{wch:14},{wch:24}];
+    ws['!cols'] = [{wch:6},{wch:20},{wch:20},{wch:10},{wch:14},{wch:14},{wch:24}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, targetDate+' 紀錄');
     XLSX.writeFile(wb, '蜜蜂外送紀錄_'+dateStrCompact(targetDate)+'.xlsx');
@@ -1091,7 +1206,7 @@
       if(liveForDate.length > 0){
         count = liveForDate.length;
         min = liveForDate.reduce((a,o)=>a+roundedMinutes(o.duration),0);
-        fee = Number(liveForDate.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1));
+        fee = Number(liveForDate.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0).toFixed(1));
         source = 'live';
       }else if(dailySummaries[cur]){
         count = dailySummaries[cur].count;
