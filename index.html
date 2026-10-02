@@ -207,6 +207,14 @@
   .amount-row input::placeholder{ color:#5C636B; font-family:'Noto Sans TC', sans-serif; font-size:12px; }
   .amount-row input:focus{ outline:none; border-color:#454C53; }
 
+  .amount-ref{
+    min-height:14px;
+    margin:-8px 0 14px;
+    font-size:11.5px;
+    color:var(--muted);
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+  }
+
   .complete-btn{
     width:100%;
     border:none;
@@ -246,7 +254,7 @@
     grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   }
   .stat{ text-align:center; padding:16px 8px; position:relative; }
-  .stat:nth-child(1),.stat:nth-child(2){ border-bottom:1px solid var(--line); }
+  .stat:nth-child(-n+4){ border-bottom:1px solid var(--line); }
   .stat:nth-child(odd)::after{
     content:""; position:absolute; right:0; top:14px; bottom:14px; width:1px; background:var(--line);
   }
@@ -346,25 +354,23 @@
   .range-result{
     margin-top:14px;
   }
-  .range-result .range-stats{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);
+  .range-stats-list{
     background:var(--bg);
     border:1px solid var(--line);
     border-radius:12px;
+    padding:4px 14px;
     margin-bottom:12px;
   }
-  .range-result .range-stat{
-    text-align:center;
-    padding:14px 6px;
-    position:relative;
+  .rs-row{
+    display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+    padding:9px 0;
+    border-bottom:1px dashed var(--line);
+    font-size:13px;
   }
-  .range-result .range-stat + .range-stat::before{
-    content:""; position:absolute; left:0; top:12px; bottom:12px; width:1px; background:var(--line);
-  }
-  .range-result .range-stat .val{ font-size:17px; font-weight:600; }
-  .range-result .range-stat .val.fee{ color:var(--stop); }
-  .range-result .range-stat .lbl{ margin-top:3px; font-size:11.5px; color:var(--muted); }
+  .rs-row:last-child{ border-bottom:none; }
+  .rs-row .rs-label{ color:var(--muted); }
+  .rs-row .rs-val{ font-weight:600; }
+  .rs-row.highlight .rs-val{ color:var(--stop); font-size:14.5px; }
 
   .range-days{ border-top:1px dashed var(--line); padding-top:10px; }
   .range-day-row{
@@ -449,10 +455,6 @@
   .log-row .dur-wrap{ text-align:right; flex-shrink:0; }
   .log-row .dur{ font-size:15px; font-weight:600; color:var(--go); }
   .log-row .fee{ font-size:12px; color:var(--stop); margin-top:2px; }
-  .log-row .fee-tag{
-    display:inline-block; margin-top:3px;
-    font-size:10.5px; color:var(--go); font-weight:600;
-  }
   .log-row .del{ background:none; border:none; color:#5C636B; font-size:12px; cursor:pointer; padding:4px 6px; }
   .log-row .del:hover{ color:var(--danger); }
 
@@ -475,6 +477,14 @@
   }
   .log-row-amount input::placeholder{ color:#5C636B; font-family:'Noto Sans TC', sans-serif; font-size:11.5px; }
   .log-row-amount input:focus{ outline:none; border-color:#454C53; }
+
+  .subsidy-line{
+    margin-top:6px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--stop);
+    text-align:right;
+  }
 
   .log-row-actions{
     display:flex; align-items:center; justify-content:flex-end; gap:4px;
@@ -528,6 +538,8 @@
     <div class="stat"><div class="val num" id="statTotal">0:00</div><div class="lbl">今日總時長</div></div>
     <div class="stat"><div class="val num" id="statAvg">0:00</div><div class="lbl">平均每趟</div></div>
     <div class="stat"><div class="val num fee" id="statFee">NT$0</div><div class="lbl">今日保障費用</div></div>
+    <div class="stat"><div class="val num" id="statBase">NT$0</div><div class="lbl">今日基本報酬</div></div>
+    <div class="stat"><div class="val num fee" id="statSubsidy">NT$0</div><div class="lbl">今日專法補貼報酬</div></div>
   </div>
 
   <div class="export-row">
@@ -559,6 +571,7 @@
         <input type="number" id="bfCount" placeholder="單數" inputmode="numeric">
         <input type="number" id="bfMin" placeholder="計費分鐘合計" inputmode="numeric">
         <input type="number" id="bfFee" placeholder="保障費用合計" inputmode="decimal" step="0.1">
+        <input type="number" id="bfBase" placeholder="基本報酬合計" inputmode="decimal" step="0.1">
         <button class="bf-save" id="bfSaveBtn">儲存這天</button>
       </div>
       <div class="bf-list" id="bfList"></div>
@@ -610,6 +623,8 @@
     statTotal: document.getElementById('statTotal'),
     statAvg: document.getElementById('statAvg'),
     statFee: document.getElementById('statFee'),
+    statBase: document.getElementById('statBase'),
+    statSubsidy: document.getElementById('statSubsidy'),
     logList: document.getElementById('logList'),
     clearAll: document.getElementById('clearAll'),
     exportBtn: document.getElementById('exportBtn'),
@@ -626,6 +641,7 @@
     bfCount: document.getElementById('bfCount'),
     bfMin: document.getElementById('bfMin'),
     bfFee: document.getElementById('bfFee'),
+    bfBase: document.getElementById('bfBase'),
     bfSaveBtn: document.getElementById('bfSaveBtn'),
     bfList: document.getElementById('bfList'),
   };
@@ -667,14 +683,20 @@
   function fmtMoney(n){
     return 'NT$'+n.toLocaleString('zh-Hant', {minimumFractionDigits:1, maximumFractionDigits:1});
   }
-  // 該筆訂單最終認列的費用：專法保障費用 vs 訂單實際金額，取較大者
-  function finalFee(durationMs, actualAmount){
-    const base = calcFee(durationMs);
-    const amt = Number(actualAmount);
-    if(!isNaN(amt) && amt > base){
-      return Math.round(amt * 10) / 10;
-    }
-    return base;
+  // 專法補貼報酬 = 專法保障費用 - 基本報酬，不足才補、不會是負數
+  function subsidyOf(durationMs, baseAmount){
+    const guarantee = calcFee(durationMs);
+    const base = Number(baseAmount) || 0;
+    const diff = Math.round((guarantee - base) * 10) / 10;
+    return diff > 0 ? diff : 0;
+  }
+  // 把一筆金額，換算成「用保障時薪算，大約相當於多少時間」，僅供司機參考
+  function amountToTimeLabel(amount){
+    const amt = Number(amount);
+    if(!amt || amt <= 0) return '';
+    const totalSeconds = Math.round(amt * 60 / 245 * 60);
+    const m = Math.floor(totalSeconds/60), s = totalSeconds%60;
+    return '≈ 相當於保障時薪 '+m+'分'+pad(s)+'秒';
   }
   function fmtClock(ts){
     const d = new Date(ts);
@@ -776,7 +798,9 @@
     dailySummaries[dateStr] = {
       count: dayOrders.length,
       totalMin: dayOrders.reduce((a,o)=>a+roundedMinutes(o.duration),0),
-      totalFee: Number(dayOrders.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0).toFixed(1)),
+      totalFee: Number(dayOrders.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1)),
+      baseAmount: Number(dayOrders.reduce((a,o)=>a+(Number(o.actualAmount)||0),0).toFixed(1)),
+      subsidy: Number(dayOrders.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0).toFixed(1)),
       source: 'auto'
     };
   }
@@ -833,7 +857,8 @@
         + '</div>'
         + '<div class="card-timer num" data-start="'+o.start+'">'+fmtHMS(Date.now()-o.start)+'</div>'
         + '<div class="note-row"><input type="text" data-note="'+o.id+'" placeholder="備註（選填，店名或地址）" maxlength="60" value="'+escapeHtml(o.note||'')+'"></div>'
-        + '<div class="amount-row"><span class="amount-label">訂單實際金額</span><input type="number" inputmode="decimal" data-amount="'+o.id+'" placeholder="選填，若知道就填" value="'+(o.actualAmount||'')+'"></div>'
+        + '<div class="amount-row"><span class="amount-label">基本報酬</span><input type="number" inputmode="decimal" data-amount="'+o.id+'" placeholder="選填，若知道就填" value="'+(o.actualAmount||'')+'"></div>'
+        + '<div class="amount-ref" data-amount-ref="'+o.id+'">'+amountToTimeLabel(o.actualAmount)+'</div>'
         + '<button class="complete-btn" data-complete="'+o.id+'">完成這一單</button>'
         + '</div>';
     }).join('');
@@ -844,11 +869,15 @@
     const count = todays.length;
     const total = todays.reduce((a,o)=>a+o.duration,0);
     const avg = count ? total/count : 0;
-    const feeTotal = todays.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0);
+    const guaranteeTotal = todays.reduce((a,o)=>a+calcFee(o.duration),0);
+    const baseTotal = todays.reduce((a,o)=>a+(Number(o.actualAmount)||0),0);
+    const subsidyTotal = todays.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0);
     el.statCount.textContent = count;
     el.statTotal.textContent = fmtMinShort(total);
     el.statAvg.textContent = fmtMinShort(avg);
-    el.statFee.textContent = fmtMoney(feeTotal);
+    el.statFee.textContent = fmtMoney(guaranteeTotal);
+    el.statBase.textContent = fmtMoney(baseTotal);
+    el.statSubsidy.textContent = fmtMoney(subsidyTotal);
   }
 
   function renderLog(){
@@ -859,21 +888,20 @@
     const sorted = [...orders].sort((a,b)=>b.end-a.end);
     el.logList.innerHTML = sorted.map((o)=>{
       const noteHtml = o.note ? '<div class="note">'+escapeHtml(o.note)+'</div>' : '';
-      const base = calcFee(o.duration);
-      const fee = finalFee(o.duration, o.actualAmount);
-      const usingActual = fee > base;
+      const guarantee = calcFee(o.duration);
+      const subsidy = subsidyOf(o.duration, o.actualAmount);
       const amountVal = (o.actualAmount===null||o.actualAmount===undefined) ? '' : o.actualAmount;
-      const tagHtml = usingActual ? '<span class="fee-tag">採用訂單金額</span>' : '';
       return '<div class="log-row" data-id="'+o.id+'">'
         + '<div class="log-row-main">'
         +   '<div class="seq-tag num">#'+(o.seq||'-')+'</div>'
         +   '<div class="times"><div class="range num">'+fmtClock(o.start)+' → '+fmtClock(o.end)+'</div>'+noteHtml+'</div>'
-        +   '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">'+fmtMoney(fee)+'</div>'+tagHtml+'</div>'
+        +   '<div class="dur-wrap"><div class="dur num">'+fmtMinShort(o.duration)+'</div><div class="fee num">保障 '+fmtMoney(guarantee)+'</div></div>'
         + '</div>'
         + '<div class="log-row-amount">'
-        +   '<span class="amount-label">訂單實際金額</span>'
+        +   '<span class="amount-label">基本報酬</span>'
         +   '<input type="number" inputmode="decimal" data-amount-log="'+o.id+'" placeholder="選填" value="'+amountVal+'">'
         + '</div>'
+        + '<div class="subsidy-line" data-subsidy-for="'+o.id+'">專法補貼報酬：'+fmtMoney(subsidy)+'</div>'
         + '<div class="log-row-actions">'
         +   '<button class="restore" data-restore="'+o.id+'">回到進行中</button>'
         +   '<button class="del" data-id="'+o.id+'">刪除</button>'
@@ -959,6 +987,10 @@
     const o = active.find(o=>o.id===id);
     if(!o) return;
     o.actualAmount = value.trim() === '' ? null : Number(value);
+
+    const refEl = el.activeList.querySelector('[data-amount-ref="'+id+'"]');
+    if(refEl) refEl.textContent = amountToTimeLabel(o.actualAmount);
+
     clearTimeout(amountSaveTimer);
     amountSaveTimer = setTimeout(saveActive, 700);
   }
@@ -1031,24 +1063,9 @@
     const val = input.value.trim();
     o.actualAmount = val === '' ? null : Number(val);
 
-    // 即時更新這一列顯示的費用與標籤，不整段重繪以免輸入焦點被中斷
-    const row = el.logList.querySelector('.log-row[data-id="'+id+'"]');
-    if(row){
-      const base = calcFee(o.duration);
-      const fee = finalFee(o.duration, o.actualAmount);
-      const usingActual = fee > base;
-      const feeEl = row.querySelector('.fee');
-      if(feeEl) feeEl.textContent = fmtMoney(fee);
-      let tagEl = row.querySelector('.fee-tag');
-      if(usingActual && !tagEl){
-        const durWrap = row.querySelector('.dur-wrap');
-        if(durWrap){
-          durWrap.insertAdjacentHTML('beforeend', '<span class="fee-tag">採用訂單金額</span>');
-        }
-      }else if(!usingActual && tagEl){
-        tagEl.remove();
-      }
-    }
+    // 即時更新這一列的專法補貼報酬，不整段重繪以免輸入焦點被中斷（保障費用本身只跟耗時有關，不受基本報酬影響）
+    const subsidyEl = el.logList.querySelector('[data-subsidy-for="'+id+'"]');
+    if(subsidyEl) subsidyEl.textContent = '專法補貼報酬：'+fmtMoney(subsidyOf(o.duration, o.actualAmount));
 
     clearTimeout(logAmountSaveTimer);
     logAmountSaveTimer = setTimeout(async ()=>{
@@ -1143,10 +1160,12 @@
     el.bfList.innerHTML = dates.map(d=>{
       const s = dailySummaries[d];
       const srcLabel = s.source === 'manual' ? '手動補登' : '自動封存';
+      const base = s.baseAmount || 0;
+      const subsidy = (s.subsidy !== undefined) ? s.subsidy : Math.max(0, Number((s.totalFee - base).toFixed(1)));
       return '<div class="bf-row" data-date="'+d+'">'
         + '<span class="rd-date num">'+d+'</span>'
-        + '<span class="rd-detail">'+srcLabel+'・'+s.count+' 單・'+s.totalMin+' 分</span>'
-        + '<span class="rd-fee num">'+fmtMoney(s.totalFee)+'</span>'
+        + '<span class="rd-detail">'+srcLabel+'・'+s.count+' 單・'+s.totalMin+' 分・保障 '+fmtMoney(s.totalFee)+'・基本 '+fmtMoney(base)+'</span>'
+        + '<span class="rd-fee num">補貼 '+fmtMoney(subsidy)+'</span>'
         + '<button class="bf-del" data-bf-del="'+d+'">刪除</button>'
         + '</div>';
     }).join('');
@@ -1158,6 +1177,7 @@
     const count = Number(el.bfCount.value) || 0;
     const totalMin = Number(el.bfMin.value) || 0;
     const totalFee = Number(el.bfFee.value) || 0;
+    const baseAmount = Number(el.bfBase.value) || 0;
     if(count <= 0 || totalFee <= 0){
       alert('請至少填入單數與保障費用合計。');
       return;
@@ -1166,13 +1186,21 @@
     if(hasLive && !confirm(d+' 目前還有未清空的明細紀錄，補登會在區間結算時被明細資料優先取代，仍要儲存這筆補登資料備用嗎？')){
       return;
     }
-    dailySummaries[d] = { count, totalMin, totalFee: Number(totalFee.toFixed(1)), source: 'manual' };
+    const subsidy = Math.max(0, Number((totalFee - baseAmount).toFixed(1)));
+    dailySummaries[d] = {
+      count, totalMin,
+      totalFee: Number(totalFee.toFixed(1)),
+      baseAmount: Number(baseAmount.toFixed(1)),
+      subsidy,
+      source: 'manual'
+    };
     await saveSummaries();
     renderBfList();
     el.bfDate.value = '';
     el.bfCount.value = '';
     el.bfMin.value = '';
     el.bfFee.value = '';
+    el.bfBase.value = '';
   });
 
   el.bfList.addEventListener('click', async (e)=>{
@@ -1196,31 +1224,41 @@
 
   function computeRangeTotals(startStr, endStr){
     const days = [];
-    let totalCount=0, totalMin=0, totalFee=0;
+    let totalCount=0, totalMin=0, totalFee=0, totalBase=0, totalSubsidy=0;
     let cur = startStr;
     let guard = 0;
     while(cur <= endStr && guard < 400){
       guard++;
       const liveForDate = orders.filter(o => dateStrOf(o.end) === cur);
-      let count=0, min=0, fee=0, source=null;
+      let count=0, min=0, fee=0, base=0, subsidy=0, source=null;
       if(liveForDate.length > 0){
         count = liveForDate.length;
         min = liveForDate.reduce((a,o)=>a+roundedMinutes(o.duration),0);
-        fee = Number(liveForDate.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0).toFixed(1));
+        fee = Number(liveForDate.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1));
+        base = Number(liveForDate.reduce((a,o)=>a+(Number(o.actualAmount)||0),0).toFixed(1));
+        subsidy = Number(liveForDate.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0).toFixed(1));
         source = 'live';
       }else if(dailySummaries[cur]){
-        count = dailySummaries[cur].count;
-        min = dailySummaries[cur].totalMin;
-        fee = dailySummaries[cur].totalFee;
-        source = dailySummaries[cur].source;
+        const s = dailySummaries[cur];
+        count = s.count;
+        min = s.totalMin;
+        fee = s.totalFee;
+        base = s.baseAmount || 0;
+        subsidy = (s.subsidy !== undefined) ? s.subsidy : Math.max(0, Number((s.totalFee - (s.baseAmount||0)).toFixed(1)));
+        source = s.source;
       }
       if(count > 0){
-        days.push({ date:cur, count, min, fee, source });
-        totalCount += count; totalMin += min; totalFee += fee;
+        days.push({ date:cur, count, min, fee, base, subsidy, source });
+        totalCount += count; totalMin += min; totalFee += fee; totalBase += base; totalSubsidy += subsidy;
       }
       cur = addDaysToDateStr(cur, 1);
     }
-    return { days, totalCount, totalMin, totalFee: Number(totalFee.toFixed(1)) };
+    return {
+      days, totalCount, totalMin,
+      totalFee: Number(totalFee.toFixed(1)),
+      totalBase: Number(totalBase.toFixed(1)),
+      totalSubsidy: Number(totalSubsidy.toFixed(1))
+    };
   }
 
   let lastRangeResult = null;
@@ -1240,15 +1278,17 @@
             + '<span class="rd-date num">'+d.date+'</span>'
             + '<span class="rd-src">'+(srcLabel[d.source]||'')+'</span>'
             + '<span class="rd-count">'+d.count+' 單</span>'
-            + '<span class="rd-fee num">'+fmtMoney(d.fee)+'</span>'
+            + '<span class="rd-fee num">補貼 '+fmtMoney(d.subsidy)+'</span>'
             + '</div>';
         }).join('');
 
     el.rangeResult.innerHTML =
-      '<div class="range-stats">'
-        + '<div class="range-stat"><div class="val num">'+result.totalCount+'</div><div class="lbl">總單數</div></div>'
-        + '<div class="range-stat"><div class="val num">'+result.totalMin+'</div><div class="lbl">計費分鐘合計</div></div>'
-        + '<div class="range-stat"><div class="val num fee">'+fmtMoney(result.totalFee)+'</div><div class="lbl">保障費用合計</div></div>'
+      '<div class="range-stats-list">'
+        + '<div class="rs-row"><span class="rs-label">總單數</span><span class="rs-val num">'+result.totalCount+'</span></div>'
+        + '<div class="rs-row"><span class="rs-label">計費分鐘合計</span><span class="rs-val num">'+result.totalMin+'</span></div>'
+        + '<div class="rs-row"><span class="rs-label">保障費用合計</span><span class="rs-val num">'+fmtMoney(result.totalFee)+'</span></div>'
+        + '<div class="rs-row"><span class="rs-label">基本報酬合計</span><span class="rs-val num">'+fmtMoney(result.totalBase)+'</span></div>'
+        + '<div class="rs-row highlight"><span class="rs-label">專法補貼報酬合計</span><span class="rs-val num">'+fmtMoney(result.totalSubsidy)+'</span></div>'
       + '</div>'
       + '<div class="range-days">'+daysHtml+'</div>';
     el.rangeResult.style.display = 'block';
@@ -1262,15 +1302,15 @@
     }
     if(!lastRangeResult || lastRangeResult.days.length === 0) return;
 
-    const rows = [['日期','單數','計費分鐘合計','保障費用合計(NT$)']];
+    const rows = [['日期','單數','計費分鐘合計','保障費用合計(NT$)','基本報酬合計(NT$)','專法補貼報酬合計(NT$)']];
     lastRangeResult.days.forEach(d=>{
-      rows.push([d.date, d.count, d.min, d.fee]);
+      rows.push([d.date, d.count, d.min, d.fee, d.base, d.subsidy]);
     });
     rows.push([]);
-    rows.push(['總計', lastRangeResult.totalCount, lastRangeResult.totalMin, lastRangeResult.totalFee]);
+    rows.push(['總計', lastRangeResult.totalCount, lastRangeResult.totalMin, lastRangeResult.totalFee, lastRangeResult.totalBase, lastRangeResult.totalSubsidy]);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:12},{wch:8},{wch:14},{wch:16}];
+    ws['!cols'] = [{wch:12},{wch:8},{wch:14},{wch:16},{wch:16},{wch:18}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '區間結算');
     XLSX.writeFile(wb, '蜜蜂外送區間結算_'+dateStrCompact(lastRangeResult.start)+'_'+dateStrCompact(lastRangeResult.end)+'.xlsx');
