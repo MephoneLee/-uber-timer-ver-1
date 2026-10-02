@@ -1112,25 +1112,31 @@
       return;
     }
 
-    const rows = [['單號','接單時間','完成時間','計費耗時(分)','訂單實際金額(NT$)','認列費用(NT$)','備註']];
+    const rows = [['單號','接單時間','完成時間','計費耗時(分)','保障費用(NT$)','基本報酬(NT$)','專法補貼報酬(NT$)','備註']];
     matched.forEach(o=>{
+      const guarantee = calcFee(o.duration);
+      const base = (o.actualAmount===null||o.actualAmount===undefined) ? '' : o.actualAmount;
+      const subsidy = subsidyOf(o.duration, o.actualAmount);
       rows.push([
         o.seq || '',
         new Date(o.start).toLocaleString('zh-TW', {hour12:false}),
         new Date(o.end).toLocaleString('zh-TW', {hour12:false}),
         roundedMinutes(o.duration),
-        (o.actualAmount===null||o.actualAmount===undefined) ? '' : o.actualAmount,
-        finalFee(o.duration, o.actualAmount),
+        guarantee,
+        base,
+        subsidy,
         o.note || ''
       ]);
     });
     const totalMin = matched.reduce((a,o)=>a+roundedMinutes(o.duration),0);
-    const totalFee = matched.reduce((a,o)=>a+finalFee(o.duration, o.actualAmount),0);
+    const totalGuarantee = matched.reduce((a,o)=>a+calcFee(o.duration),0);
+    const totalBase = matched.reduce((a,o)=>a+(Number(o.actualAmount)||0),0);
+    const totalSubsidy = matched.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0);
     rows.push([]);
-    rows.push(['總計','','', totalMin, '', Number(totalFee.toFixed(1)), '共 '+matched.length+' 筆']);
+    rows.push(['總計','','', totalMin, Number(totalGuarantee.toFixed(1)), Number(totalBase.toFixed(1)), Number(totalSubsidy.toFixed(1)), '共 '+matched.length+' 筆']);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:6},{wch:20},{wch:20},{wch:10},{wch:14},{wch:14},{wch:24}];
+    ws['!cols'] = [{wch:6},{wch:20},{wch:20},{wch:10},{wch:14},{wch:14},{wch:16},{wch:24}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, targetDate+' 紀錄');
     XLSX.writeFile(wb, '蜜蜂外送紀錄_'+dateStrCompact(targetDate)+'.xlsx');
