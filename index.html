@@ -683,7 +683,13 @@
   function fmtMoney(n){
     return 'NT$'+n.toLocaleString('zh-Hant', {minimumFractionDigits:1, maximumFractionDigits:1});
   }
-  // 專法補貼報酬 = 專法保障費用 - 基本報酬，不足才補、不會是負數
+  // 該筆訂單認列的保障費用：時間計算的保障報酬 與 基本報酬，取較大者
+  function guaranteeOf(durationMs, baseAmount){
+    const timeBased = calcFee(durationMs);
+    const base = Number(baseAmount) || 0;
+    return base > timeBased ? Math.round(base * 10) / 10 : timeBased;
+  }
+  // 專法補貼報酬 = 時間計算的保障報酬 - 基本報酬，不足才補、不會是負數
   function subsidyOf(durationMs, baseAmount){
     const guarantee = calcFee(durationMs);
     const base = Number(baseAmount) || 0;
@@ -798,7 +804,7 @@
     dailySummaries[dateStr] = {
       count: dayOrders.length,
       totalMin: dayOrders.reduce((a,o)=>a+roundedMinutes(o.duration),0),
-      totalFee: Number(dayOrders.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1)),
+      totalFee: Number(dayOrders.reduce((a,o)=>a+guaranteeOf(o.duration, o.actualAmount),0).toFixed(1)),
       baseAmount: Number(dayOrders.reduce((a,o)=>a+(Number(o.actualAmount)||0),0).toFixed(1)),
       subsidy: Number(dayOrders.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0).toFixed(1)),
       source: 'auto'
@@ -869,7 +875,7 @@
     const count = todays.length;
     const total = todays.reduce((a,o)=>a+o.duration,0);
     const avg = count ? total/count : 0;
-    const guaranteeTotal = todays.reduce((a,o)=>a+calcFee(o.duration),0);
+    const guaranteeTotal = todays.reduce((a,o)=>a+guaranteeOf(o.duration, o.actualAmount),0);
     const baseTotal = todays.reduce((a,o)=>a+(Number(o.actualAmount)||0),0);
     const subsidyTotal = todays.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0);
     el.statCount.textContent = count;
@@ -888,7 +894,7 @@
     const sorted = [...orders].sort((a,b)=>b.end-a.end);
     el.logList.innerHTML = sorted.map((o)=>{
       const noteHtml = o.note ? '<div class="note">'+escapeHtml(o.note)+'</div>' : '';
-      const guarantee = calcFee(o.duration);
+      const guarantee = guaranteeOf(o.duration, o.actualAmount);
       const subsidy = subsidyOf(o.duration, o.actualAmount);
       const amountVal = (o.actualAmount===null||o.actualAmount===undefined) ? '' : o.actualAmount;
       return '<div class="log-row" data-id="'+o.id+'">'
@@ -1066,6 +1072,9 @@
     // 即時更新這一列的專法補貼報酬，不整段重繪以免輸入焦點被中斷（保障費用本身只跟耗時有關，不受基本報酬影響）
     const subsidyEl = el.logList.querySelector('[data-subsidy-for="'+id+'"]');
     if(subsidyEl) subsidyEl.textContent = '專法補貼報酬：'+fmtMoney(subsidyOf(o.duration, o.actualAmount));
+    const rowEl = el.logList.querySelector('.log-row[data-id="'+id+'"]');
+    const feeEl = rowEl ? rowEl.querySelector('.fee') : null;
+    if(feeEl) feeEl.textContent = '保障 '+fmtMoney(guaranteeOf(o.duration, o.actualAmount));
 
     clearTimeout(logAmountSaveTimer);
     logAmountSaveTimer = setTimeout(async ()=>{
@@ -1114,7 +1123,7 @@
 
     const rows = [['單號','接單時間','完成時間','計費耗時(分)','保障費用(NT$)','基本報酬(NT$)','專法補貼報酬(NT$)','備註']];
     matched.forEach(o=>{
-      const guarantee = calcFee(o.duration);
+      const guarantee = guaranteeOf(o.duration, o.actualAmount);
       const base = (o.actualAmount===null||o.actualAmount===undefined) ? '' : o.actualAmount;
       const subsidy = subsidyOf(o.duration, o.actualAmount);
       rows.push([
@@ -1129,7 +1138,7 @@
       ]);
     });
     const totalMin = matched.reduce((a,o)=>a+roundedMinutes(o.duration),0);
-    const totalGuarantee = matched.reduce((a,o)=>a+calcFee(o.duration),0);
+    const totalGuarantee = matched.reduce((a,o)=>a+guaranteeOf(o.duration, o.actualAmount),0);
     const totalBase = matched.reduce((a,o)=>a+(Number(o.actualAmount)||0),0);
     const totalSubsidy = matched.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0);
     rows.push([]);
@@ -1240,7 +1249,7 @@
       if(liveForDate.length > 0){
         count = liveForDate.length;
         min = liveForDate.reduce((a,o)=>a+roundedMinutes(o.duration),0);
-        fee = Number(liveForDate.reduce((a,o)=>a+calcFee(o.duration),0).toFixed(1));
+        fee = Number(liveForDate.reduce((a,o)=>a+guaranteeOf(o.duration, o.actualAmount),0).toFixed(1));
         base = Number(liveForDate.reduce((a,o)=>a+(Number(o.actualAmount)||0),0).toFixed(1));
         subsidy = Number(liveForDate.reduce((a,o)=>a+subsidyOf(o.duration, o.actualAmount),0).toFixed(1));
         source = 'live';
