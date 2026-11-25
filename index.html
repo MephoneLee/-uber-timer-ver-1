@@ -440,6 +440,27 @@
   .bf-row .bf-del:hover{ color:var(--danger); }
   .bf-empty{ color:var(--muted); font-size:12.5px; padding:6px 0; }
 
+  .backup-section{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px 18px;
+    margin-bottom:22px;
+  }
+  .backup-btns{ display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+  .bk-text{
+    width:100%; max-width:100%; box-sizing:border-box;
+    border:1px solid var(--line); border-radius:8px;
+    padding:9px 10px; margin-bottom:8px;
+    background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:11px;
+    resize:vertical;
+  }
+  .bk-text::placeholder{ color:#5C636B; font-family:'Noto Sans TC', sans-serif; font-size:12px; }
+  .bk-msg{ margin-top:10px; font-size:12.5px; color:var(--muted); line-height:1.6; }
+  .bk-msg.ok{ color:var(--go); }
+  .bk-msg.bad{ color:var(--danger); }
+
   .log-section{ margin-top:0; }
   .log-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
   .log-head h2{ font-family:'Noto Serif TC', serif; font-size:15px; font-weight:700; margin:0; }
@@ -584,6 +605,22 @@
         <button class="bf-save" id="bfSaveBtn">儲存這天</button>
       </div>
       <div class="bf-list" id="bfList"></div>
+    </div>
+  </details>
+
+  <details class="backup-section">
+    <summary class="section-summary"><h2>備份與還原</h2><span class="chevron">▸</span></summary>
+    <div class="section-body">
+      <p class="section-hint">資料只存在這支手機的瀏覽器裡。建議每週備份一次；換手機或資料不見時，可以用備份檔還原（會與目前資料合併，不會覆蓋或刪除現有紀錄）。</p>
+      <div class="backup-btns">
+        <button class="export-btn" id="bkDownloadBtn">⬇ 下載備份檔（.json）</button>
+        <button class="export-btn" id="bkCopyBtn">複製備份文字</button>
+        <button class="export-btn" id="bkRestoreFileBtn">選擇備份檔還原</button>
+        <input type="file" id="bkFileInput" accept=".json,application/json" style="display:none;">
+      </div>
+      <textarea id="bkText" class="bk-text" rows="4" placeholder="備份文字會顯示在這裡；要用文字還原時，把備份文字貼在這裡，再按下方按鈕"></textarea>
+      <button class="export-btn" id="bkRestoreTextBtn">用上方貼上的文字還原</button>
+      <div class="bk-msg" id="bkMsg"></div>
     </div>
   </details>
 
@@ -1347,6 +1384,113 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '區間結算');
     XLSX.writeFile(wb, '蜜蜂外送區間結算_'+dateStrCompact(lastRangeResult.start)+'_'+dateStrCompact(lastRangeResult.end)+'.xlsx');
+  });
+
+  // ---- 備份與還原 ----
+  const bkMsg = document.getElementById('bkMsg');
+  const bkText = document.getElementById('bkText');
+  const bkFileInput = document.getElementById('bkFileInput');
+
+  function bkSay(text, cls){
+    bkMsg.textContent = text;
+    bkMsg.className = 'bk-msg' + (cls ? ' '+cls : '');
+  }
+
+  function buildBackup(){
+    return JSON.stringify({
+      app: 'bee-delivery-timer',
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      orders: orders,
+      active: active,
+      dailySummaries: dailySummaries
+    });
+  }
+
+  document.getElementById('bkDownloadBtn').addEventListener('click', ()=>{
+    try{
+      const blob = new Blob([buildBackup()], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '蜜蜂外送備份_'+dateStrCompact(dateStrOf(Date.now()))+'.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+      bkSay('已產生備份檔。如果手機沒有自動下載，請改用「複製備份文字」，貼到備忘錄或傳給自己保存。', 'ok');
+    }catch(e){
+      bkSay('下載失敗，請改用「複製備份文字」。', 'bad');
+    }
+  });
+
+  document.getElementById('bkCopyBtn').addEventListener('click', async ()=>{
+    const text = buildBackup();
+    bkText.value = text;
+    try{
+      await navigator.clipboard.writeText(text);
+      bkSay('備份文字已複製。請貼到備忘錄、LINE 的「我的筆記」或傳給自己保存。', 'ok');
+    }catch(e){
+      bkText.focus();
+      bkText.select();
+      bkSay('無法自動複製，備份文字已顯示在上方文字框，請長按全選後手動複製。', 'ok');
+    }
+  });
+
+  function numOrNull(v){ const n = Number(v); return isFinite(n) ? n : null; }
+
+  async function restoreFromText(raw){
+    let data;
+    try{ data = JSON.parse(raw); }
+    catch(e){ bkSay('還原失敗：內容不是有效的備份資料。', 'bad'); return; }
+    if(!data || data.app !== 'bee-delivery-timer'){
+      bkSay('還原失敗：這不是本工具產生的備份。', 'bad');
+      return;
+    }
+
+    const inOrders = Array.isArray(data.orders) ? data.orders : [];
+    const inActive = Array.isArray(data.active) ? data.active : [];
+    const inSum = (data.dailySummaries && typeof data.dailySummaries === 'object') ? data.dailySummaries : {};
+
+    const validOrders = inOrders.filter(o => o && o.id && numOrNull(o.start)!==null && numOrNull(o.end)!==null && numOrNull(o.duration)!==null);
+    const validActive = inActive.filter(o => o && o.id && numOrNull(o.start)!==null);
+
+    const orderIds = new Set(orders.map(o=>o.id));
+    const activeIds = new Set(active.map(o=>o.id));
+    const newOrders = validOrders.filter(o => !orderIds.has(o.id));
+    const newActive = validActive.filter(o => !activeIds.has(o.id) && !orderIds.has(o.id));
+    const newSumDates = Object.keys(inSum).filter(d => !dailySummaries[d] && inSum[d] && numOrNull(inSum[d].count)!==null);
+
+    if(newOrders.length + newActive.length + newSumDates.length === 0){
+      bkSay('備份裡沒有比目前更多的資料，不需要還原。', 'ok');
+      return;
+    }
+    if(!confirm('將補入：已完成訂單 '+newOrders.length+' 筆、進行中 '+newActive.length+' 筆、每日彙總 '+newSumDates.length+' 天。\n現有資料不會被覆蓋或刪除。確定還原嗎？')) return;
+
+    orders = orders.concat(newOrders);
+    active = active.concat(newActive);
+    newSumDates.forEach(d => { dailySummaries[d] = inSum[d]; });
+    await saveOrders();
+    await saveActive();
+    await saveSummaries();
+    renderAll();
+    renderBfList();
+    bkSay('還原完成：補入訂單 '+newOrders.length+' 筆、進行中 '+newActive.length+' 筆、每日彙總 '+newSumDates.length+' 天。', 'ok');
+  }
+
+  document.getElementById('bkRestoreFileBtn').addEventListener('click', ()=>{ bkFileInput.click(); });
+  bkFileInput.addEventListener('change', ()=>{
+    const f = bkFileInput.files && bkFileInput.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ restoreFromText(String(reader.result)); bkFileInput.value = ''; };
+    reader.onerror = ()=>{ bkSay('讀取檔案失敗。', 'bad'); };
+    reader.readAsText(f);
+  });
+  document.getElementById('bkRestoreTextBtn').addEventListener('click', ()=>{
+    const raw = bkText.value.trim();
+    if(!raw){ bkSay('請先把備份文字貼在上方文字框。', 'bad'); return; }
+    restoreFromText(raw);
   });
 
   (async function init(){
